@@ -1,0 +1,100 @@
+---
+title: "Manage citizen appointments for fluvial services"
+description: "Schedule, track, and review citizen appointments for river transport procedures using the agenda, appointment creation, and history views."
+---
+
+The appointments module (Citas) centralises citizen scheduling for all fluvial procedures handled by DRTC Amazonas. Operators use it to monitor the current day's queue, create new appointments on behalf of citizens, and consult the full historical record of past interactions. All three views are accessible from the **Citas** entry in the sidebar under the **Principal** section, which links to `/fluvial/citas/agenda`.
+
+## Operational alert
+
+At the top of the agenda view, a `DelayAlert` banner fires automatically when wait times grow:
+
+```tsx
+<DelayAlert message="3 citas exceden 15 min de espera" />
+```
+
+When you see this banner, three or more citizens in the queue have been waiting longer than 15 minutes. Address these cases before scheduling new appointments.
+
+<Warning>
+Ignoring the 15-minute wait alert may affect the DRTC's service quality metrics. Resolve delayed appointments before adding new bookings to the queue.
+</Warning>
+
+## Workflow overview
+
+<Steps>
+  <Step title="View the agenda">
+    Open **Citas → Agenda** (`/fluvial/citas/agenda`). Review the KPI stats grid at the top of the page, check the live sidebar for in-progress appointments, scan the traffic insight chart for incoming volume, and use the mini agenda to see today's full schedule. If the delay alert is active, address those appointments first.
+  </Step>
+  <Step title="Create a new appointment">
+    Click **Nueva Cita** from the agenda header or navigate directly to `/fluvial/citas/generar`. Fill in the three-section form — procedure type, citizen data, and scheduling — then confirm. The system validates real-time slot availability before saving.
+  </Step>
+  <Step title="Review appointment history">
+    Click **Ver Historial** from the agenda header or navigate to `/fluvial/citas/historial`. Filter records by name/DNI, date range, status, or procedure type. Export the filtered set as PDF or Excel for reporting.
+  </Step>
+</Steps>
+
+## Views
+
+<Tabs>
+  <Tab title="Agenda">
+    The agenda view (`DashboardCitas`) is the main operational screen. It contains:
+
+    - **DelayAlert** — a dismissible banner that appears when three or more appointments exceed 15 minutes of wait time.
+    - **StatsGrid** — KPI cards showing today's appointment totals, completions, and pending counts.
+    - **LiveSidebar** — a real-time column on the left showing citizens currently being attended.
+    - **TrafficInsight** — a chart below the live sidebar visualising incoming appointment volume throughout the day.
+    - **MiniAgenda** — an expanded 8-column timeline of the day's appointments with status indicators.
+
+    The header also shows the current date (formatted by `formatFullDate()`) and two action buttons: **Nueva Cita** and **Ver Historial**.
+  </Tab>
+  <Tab title="Generate">
+    The appointment creation page (`GenerarCita`) presents a three-section form alongside a summary sidebar:
+
+    **Section 01 — Datos del trámite**
+
+    Select the procedure type from a dropdown. This determines which service the appointment is being booked for (for example, Empadronamiento).
+
+    **Section 02 — Datos del ciudadano**
+
+    Enter the citizen's DNI or RUC. As you type, the system validates the document in real time:
+    - A spinner icon appears while the lookup runs.
+    - A green check icon and the message "Identidad verificada correctamente" confirm a valid document.
+    - A red X icon and the message "Documento no válido" indicate a lookup failure.
+
+    Once validated, the **Nombre completo / Razón social** field auto-fills and becomes read-only. You also enter the citizen's contact phone number.
+
+    **Section 03 — Programación**
+
+    A mini calendar and a grid of available time slots (30-minute intervals from 08:00 AM to 12:00 PM) let you pick the appointment date and time. Slots shown with a dashed border are already taken.
+
+    A **SummarySidebar** on the right updates as you complete each section. The **FormActions** component provides Save and Cancel controls.
+
+    <Tip>
+      Verify the citizen's identity (Section 02) before selecting a time slot (Section 03). If the document lookup fails after you have already chosen a slot, you will need to reselect the time.
+    </Tip>
+  </Tab>
+  <Tab title="History">
+    The history page (`HistoryPage`) gives you a searchable, filterable table of all past appointments plus aggregate metrics.
+
+    **Filters** — four filter controls appear at the top of the table:
+
+    | Filter | Input type | Description |
+    |--------|-----------|-------------|
+    | Nombre o DNI | Text | Search by citizen name or document number |
+    | Rango de fecha | Date | Filter by appointment date |
+    | Estado | Select | Filter by appointment status |
+    | Trámite | Select | Filter by procedure type |
+
+    **Table** — paginated results showing citizen, date, status, and procedure. Click any row to open the detail view.
+
+    **Export** — use the **PDF** or **Excel** buttons in the page header to download the current filtered result set.
+
+    **Metrics panel** — three cards at the bottom of the page show aggregate statistics. The current version displays these as static placeholder values while the backend integration for live metric data is completed:
+
+    | Metric | Display value |
+    |--------|--------------|
+    | Trámites Anuales | 14,208 (+12.4% vs prior year) |
+    | Promedio de Atención | 18.5 min (75% efficiency) |
+    | Tasa de Finalización | 94.2% |
+  </Tab>
+</Tabs>

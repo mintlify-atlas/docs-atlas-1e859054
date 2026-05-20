@@ -1,0 +1,670 @@
+---
+title: "Custom React hooks in DRTC Fluvial Admin"
+description: "Signatures, return values, and usage examples for every custom hook in shared/hooks, plus the tour system, toast helpers, and date utilities."
+---
+
+The `shared/hooks` directory provides a set of custom React hooks that encapsulate the most common data-fetching, UI, and utility patterns used across the panel. Each hook follows the same interface: call it at the top of a component, destructure what you need, and let it handle loading state and error handling internally. This page also covers the guided tour system (`useTour` + tour constants), the `useSpeech` accessibility hook, the `lib/toast.ts` notification helpers, and the `lib/date.ts` formatting utility.
+
+<Note>
+  All hooks marked `"use client"` must be used inside Client Components. If you need to fetch catalogue data server-side, call the underlying API functions directly instead.
+</Note>
+
+## Catalogue data hooks
+
+These hooks fetch read-only reference catalogues from the backend. They all share the same pattern: they check an in-memory cache first, then fetch, and they always return `{ data, loading, error }` (with the data key renamed to match the resource).
+
+<AccordionGroup>
+  <Accordion title="useMateriales">
+    `shared/hooks/useMateriales.ts`
+
+    Fetches the list of hull materials (`MaterialCatalogo`) used to populate vessel registration form selects. Results are cached under the key `"materiales"` in the shared in-memory cache so repeated renders do not trigger duplicate requests.
+
+    **Signature**
+
+    ```typescript
+    function useMateriales(): {
+      materiales: MaterialCatalogo[];
+      loading: boolean;
+      error: string | null;
+    }
+    ```
+
+    **Usage**
+
+    ```tsx
+    import { useMateriales } from "@/shared/hooks/useMateriales";
+
+    export default function MaterialSelect() {
+      const { materiales, loading, error } = useMateriales();
+
+      if (loading) return <p>Cargando materiales...</p>;
+      if (error) return <p className="text-red-500">{error}</p>;
+
+      return (
+        <select>
+          {materiales.map((m) => (
+            <option key={m.id} value={m.id}>{m.nombre}</option>
+          ))}
+        </select>
+      );
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="useModalidades">
+    `shared/hooks/useModalidades.ts`
+
+    Fetches the list of operation modalities (`ModalidadCatalogo`). Uses a module-level `cache` variable — once the list has been fetched during the browser session, subsequent calls return it instantly without an API round-trip.
+
+    **Signature**
+
+    ```typescript
+    function useModalidades(): {
+      modalidades: ModalidadCatalogo[];
+      loading: boolean;
+      error: string | null;
+    }
+    ```
+
+    **Usage**
+
+    ```tsx
+    import { useModalidades } from "@/shared/hooks/useModalidades";
+
+    export default function ModalidadSelect() {
+      const { modalidades, loading, error } = useModalidades();
+
+      if (loading) return <p>Cargando modalidades...</p>;
+      if (error) return <p className="text-red-500">{error}</p>;
+
+      return (
+        <select>
+          {modalidades.map((m) => (
+            <option key={m.id} value={m.id}>{m.nombre}</option>
+          ))}
+        </select>
+      );
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="useTiposNave">
+    `shared/hooks/useTiposNave.ts`
+
+    Fetches the list of vessel types (`TipoNaveCatalogo`). Uses a module-level `cache` variable identical in behaviour to `useModalidades`.
+
+    **Signature**
+
+    ```typescript
+    function useTiposNave(): {
+      tiposNave: TipoNaveCatalogo[];
+      loading: boolean;
+      error: string | null;
+    }
+    ```
+
+    **Usage**
+
+    ```tsx
+    import { useTiposNave } from "@/shared/hooks/useTiposNave";
+
+    export default function TipoNaveSelect() {
+      const { tiposNave, loading, error } = useTiposNave();
+
+      if (loading) return <p>Cargando tipos de nave...</p>;
+      if (error) return <p className="text-red-500">{error}</p>;
+
+      return (
+        <select>
+          {tiposNave.map((t) => (
+            <option key={t.id} value={t.id}>{t.nombre}</option>
+          ))}
+        </select>
+      );
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="useServiciosNave">
+    `shared/hooks/useServiceNave.ts`
+
+    Fetches the list of vessel services (`ServicioNave`). Uses the shared `getCache`/`setCache` helpers from `shared/cache/cache.ts` with the key `"servicios_nave"`.
+
+    **Signature**
+
+    ```typescript
+    function useServiciosNave(): {
+      serviciosNave: ServicioNave[];
+      loading: boolean;
+      error: string | null;
+    }
+    ```
+
+    **Usage**
+
+    ```tsx
+    import { useServiciosNave } from "@/shared/hooks/useServiceNave";
+
+    export default function ServicioSelect() {
+      const { serviciosNave, loading, error } = useServiciosNave();
+
+      if (loading) return <p>Cargando servicios...</p>;
+      if (error) return <p className="text-red-500">{error}</p>;
+
+      return (
+        <select>
+          {serviciosNave.map((s) => (
+            <option key={s.id} value={s.id}>{s.nombre}</option>
+          ))}
+        </select>
+      );
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="useUbicaciones">
+    `shared/hooks/useUbicaciones.ts`
+
+    Fetches the list of geographic locations (`UbicacionCatalogo`) used in vessel registration. Uses a module-level `cache` variable.
+
+    **Signature**
+
+    ```typescript
+    function useUbicaciones(): {
+      ubicaciones: UbicacionCatalogo[];
+      loading: boolean;
+      error: string | null;
+    }
+    ```
+
+    **Usage**
+
+    ```tsx
+    import { useUbicaciones } from "@/shared/hooks/useUbicaciones";
+
+    export default function UbicacionSelect() {
+      const { ubicaciones, loading, error } = useUbicaciones();
+
+      if (loading) return <p>Cargando ubicaciones...</p>;
+      if (error) return <p className="text-red-500">{error}</p>;
+
+      return (
+        <select>
+          {ubicaciones.map((u) => (
+            <option key={u.id} value={u.id}>{u.nombre}</option>
+          ))}
+        </select>
+      );
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Shared in-memory cache
+
+`shared/cache/cache.ts` exports three functions used internally by the catalogue hooks. You can use them to add caching to any other hook that fetches static or semi-static data.
+
+```typescript
+// Get a cached value by key. Returns null if the key does not exist.
+function getCache<T>(key: string): T | null
+
+// Store a value under a key. Overwrites any existing value.
+function setCache<T>(key: string, data: T): void
+
+// Clear a single key, or omit the argument to clear everything.
+function clearCache(key?: string): void
+```
+
+**Usage pattern**
+
+```typescript
+import { getCache, setCache } from "@/shared/cache/cache";
+
+const CACHE_KEY = "my_catalogue";
+
+export function useMyHook() {
+  useEffect(() => {
+    const cached = getCache<MyType[]>(CACHE_KEY);
+    if (cached) {
+      setState({ data: cached, loading: false, error: null });
+      return;
+    }
+    // fetch, then:
+    setCache(CACHE_KEY, fetchedData);
+  }, []);
+}
+```
+
+## Identity verification hook
+
+<AccordionGroup>
+  <Accordion title="usePersonaVerification">
+    `shared/hooks/usePersonaVerification.ts`
+
+    Looks up a person by DNI (8 digits) or RUC (11 digits) and returns the result. It debounces lookups by only firing when the document string is exactly 8 or 11 characters long. The hook re-runs automatically whenever `doc` changes.
+
+    **Signature**
+
+    ```typescript
+    function usePersonaVerification(doc: string): {
+      data: PersonaReferencia | null;
+      status: "idle" | "loading" | "success" | "error";
+    }
+    ```
+
+    **Status values**
+
+    | Status | Meaning |
+    |---|---|
+    | `idle` | Input is empty or not 8/11 characters |
+    | `loading` | API call in progress |
+    | `success` | Person found — `data` is populated |
+    | `error` | Person not found or API error — `data` is null |
+
+    **Usage**
+
+    ```tsx
+    import { usePersonaVerification } from "@/shared/hooks/usePersonaVerification";
+
+    export default function DniField() {
+      const [doc, setDoc] = useState("");
+      const { data, status } = usePersonaVerification(doc);
+
+      return (
+        <div>
+          <input
+            id="dni-ruc"
+            value={doc}
+            onChange={(e) => setDoc(e.target.value)}
+            placeholder="DNI o RUC"
+          />
+          {status === "loading" && <p>Verificando...</p>}
+          {status === "success" && data && (
+            <p className="text-green-600">{data.nombreCompleto}</p>
+          )}
+          {status === "error" && (
+            <p className="text-red-500">Documento no encontrado</p>
+          )}
+        </div>
+      );
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Propietario mutation hooks
+
+<AccordionGroup>
+  <Accordion title="useCreatePropietario">
+    `shared/hooks/propietario/useCreatePropietario.ts`
+
+    Wraps the `createPropietario` API call with loading and error state. Errors from Axios responses are unwrapped to their human-readable message before being stored.
+
+    **Signature**
+
+    ```typescript
+    function useCreatePropietario(): {
+      create: (data: CreatePropietarioDto) => Promise<PropietarioCreated>;
+      loading: boolean;
+      error: string | null;
+    }
+    ```
+
+    **Usage**
+
+    ```tsx
+    import { useCreatePropietario } from "@/shared/hooks/propietario/useCreatePropietario";
+
+    export default function NuevoPropietarioForm() {
+      const { create, loading, error } = useCreatePropietario();
+
+      const handleSubmit = async (formData: CreatePropietarioDto) => {
+        try {
+          const result = await create(formData);
+          // handle success
+        } catch {
+          // error is already stored in the hook's error state
+        }
+      };
+
+      return (
+        <form onSubmit={...}>
+          {/* fields */}
+          {error && <p className="text-red-500">{error}</p>}
+          <Button type="submit" loading={loading}>Crear propietario</Button>
+        </form>
+      );
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="useUpdatePropietario">
+    `shared/hooks/propietario/useUpdatePropietario.ts`
+
+    Wraps the `updatePropietario` API call with loading and error state.
+
+    **Signature**
+
+    ```typescript
+    function useUpdatePropietario(): {
+      update: (id: string, data: UpdatePropietarioDto) => Promise<PropietarioUpdated>;
+      loading: boolean;
+      error: string | null;
+    }
+    ```
+
+    **Usage**
+
+    ```tsx
+    import { useUpdatePropietario } from "@/shared/hooks/propietario/useUpdatePropietario";
+
+    export default function EditarPropietarioForm({ id }: { id: string }) {
+      const { update, loading, error } = useUpdatePropietario();
+
+      const handleSubmit = async (formData: UpdatePropietarioDto) => {
+        try {
+          await update(id, formData);
+          // handle success
+        } catch {
+          // error is stored in the hook's error state
+        }
+      };
+
+      return (
+        <form onSubmit={...}>
+          {/* fields */}
+          {error && <p className="text-red-500">{error}</p>}
+          <Button type="submit" loading={loading}>Guardar cambios</Button>
+        </form>
+      );
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Guided tour system
+
+The guided tour system is built on [driver.js](https://driverjs.com) and consists of two parts: the `useTour` hook that drives the tour engine, and a set of step-constant files that define the tour steps for each major workflow.
+
+<AccordionGroup>
+  <Accordion title="useTour">
+    `shared/hooks/useTour.ts`
+
+    Wraps the driver.js library and exposes a single `startTour` function. The tour renders with a 50% overlay, animated transitions, and a progress indicator.
+
+    **Signature**
+
+    ```typescript
+    type Step = {
+      element: string;          // CSS selector for the highlighted element
+      popover: {
+        title: string;
+        description: string;
+      };
+      stagePadding?: number;    // padding around the highlighted element
+    };
+
+    function useTour(): {
+      startTour: (steps: Step[]) => void;
+    }
+    ```
+
+    **Usage**
+
+    ```tsx
+    import { useTour } from "@/shared/hooks/useTour";
+    import { EMPADRONAMIENTO_TOURS } from "@/shared/tours/empadronamiento.tour";
+
+    export default function EmpadronamientoPage() {
+      const { startTour } = useTour();
+
+      return (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => startTour(EMPADRONAMIENTO_TOURS.completo)}
+        >
+          Ver tutorial
+        </Button>
+      );
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Tour step constants">
+    Tour steps are defined as exported constants in `shared/tours/`. Import the constant that matches the current page and pass it directly to `startTour`.
+
+    **EMPADRONAMIENTO\_TOURS** — `shared/tours/empadronamiento.tour.ts`
+
+    An object with three named step sequences for the vessel registration workflow:
+
+    | Key | Steps | Purpose |
+    |---|---|---|
+    | `bloques` | `#bloque-titular`, `#bloque-nave`, `#bloque-motor` | Tour of the three main form sections |
+    | `campos` | `#dni-ruc`, `#nombre` | Tour of key individual fields |
+    | `completo` | `#bloque-titular`, `#Tipo_persona`, `#dni-ruc` | Full onboarding tour from the beginning |
+
+    ```typescript
+    import { EMPADRONAMIENTO_TOURS } from "@/shared/tours/empadronamiento.tour";
+
+    // Start the full onboarding tour
+    startTour(EMPADRONAMIENTO_TOURS.completo);
+
+    // Start a focused field tour
+    startTour(EMPADRONAMIENTO_TOURS.campos);
+    ```
+
+    **LOGIN\_TOUR** — `shared/tours/login.tour.ts`
+
+    A flat array of three steps guiding users through the login form: `#email`, `#password`, and `#btn-login`.
+
+    ```typescript
+    import { LOGIN_TOUR } from "@/shared/tours/login.tour";
+
+    startTour(LOGIN_TOUR);
+    ```
+
+    **DASHBOARD\_TOUR** — `shared/tours/dashboard.tour.ts`
+
+    A flat array of two steps: `#menu` (sidebar navigation) and `#cards` (KPI summary cards).
+
+    ```typescript
+    import { DASHBOARD_TOUR } from "@/shared/tours/dashboard.tour";
+
+    startTour(DASHBOARD_TOUR);
+    ```
+
+    <Tip>
+      Make sure each `element` selector exists in the DOM when `startTour` is called. Assign the corresponding `id` to the target element in your JSX — for example `<div id="bloque-titular">`.
+    </Tip>
+  </Accordion>
+</AccordionGroup>
+
+## Accessibility hook
+
+<AccordionGroup>
+  <Accordion title="useSpeech">
+    `shared/hooks/useSpeech.ts`
+
+    Wraps the Web Speech API (`window.speechSynthesis`) to provide text-to-speech functionality for accessibility. The hook is configured for Peruvian Spanish (`es-PE`) at a slightly slowed rate of 0.95.
+
+    **Signature**
+
+    ```typescript
+    type UseSpeechReturn = {
+      hablar: (texto: string) => void;  // speak the given text; cancels any current speech first
+      detener: () => void;              // cancel speech immediately
+      estaHablando: () => boolean;      // returns true while speech is active
+    };
+
+    function useSpeech(): UseSpeechReturn
+    ```
+
+    **Speech settings**
+
+    | Setting | Value |
+    |---|---|
+    | Language | `es-PE` |
+    | Rate | `0.95` |
+    | Pitch | `1` |
+
+    **Usage**
+
+    ```tsx
+    import { useSpeech } from "@/shared/hooks/useSpeech";
+
+    export default function HelpButton({ text }: { text: string }) {
+      const { hablar, detener, estaHablando } = useSpeech();
+
+      return (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => estaHablando() ? detener() : hablar(text)}
+        >
+          {estaHablando() ? "Detener" : "Escuchar instrucciones"}
+        </Button>
+      );
+    }
+    ```
+
+    <Note>
+      `hablar` is a no-op when called in a server environment (`typeof window === "undefined"`), so the hook is safe to import in isomorphic modules.
+    </Note>
+  </Accordion>
+</AccordionGroup>
+
+## Toast notification helpers
+
+`lib/toast.ts` exports three namespaced toast objects built on top of `react-hot-toast`. Each namespace targets a different `toasterId`, allowing you to position notification groups independently.
+
+<AccordionGroup>
+  <Accordion title="toastEmpadronamiento">
+    Used for vessel registration (empadronamiento) workflow notifications. Toasts appear in the `"left"` toaster.
+
+    **Methods**
+
+    ```typescript
+    toastEmpadronamiento.loading(msg: string): string  // returns toast id
+    toastEmpadronamiento.success(msg: string, id?: string): string
+    toastEmpadronamiento.error(msg: string, id?: string): string
+    ```
+
+    Pass the toast `id` returned by `.loading()` to `.success()` or `.error()` to replace the loading toast in-place.
+
+    **Usage**
+
+    ```typescript
+    import { toastEmpadronamiento } from "@/lib/toast";
+
+    const id = toastEmpadronamiento.loading("Guardando registro...");
+
+    try {
+      await createEmpadronamiento(data);
+      toastEmpadronamiento.success("Registro creado correctamente", id);
+    } catch {
+      toastEmpadronamiento.error("Error al guardar el registro", id);
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="toastPermisos">
+    Used for operation permit workflow notifications. Toasts appear in the `"center"` toaster.
+
+    **Methods**
+
+    ```typescript
+    toastPermisos.loading(msg: string): string
+    toastPermisos.success(msg: string): string
+    toastPermisos.error(msg: string): string
+    ```
+
+    **Usage**
+
+    ```typescript
+    import { toastPermisos } from "@/lib/toast";
+
+    toastPermisos.loading("Procesando permiso...");
+    // later:
+    toastPermisos.success("Permiso aprobado");
+    ```
+  </Accordion>
+
+  <Accordion title="toastGeneral">
+    Used for authentication and general-purpose notifications. Toasts appear in the `"right"` toaster.
+
+    **Methods**
+
+    ```typescript
+    toastGeneral.loading(msg: string): string
+    toastGeneral.success(msg: string): string
+    toastGeneral.error(msg: string): string
+    ```
+
+    **Usage**
+
+    ```typescript
+    import { toastGeneral } from "@/lib/toast";
+
+    toastGeneral.error("Sesión expirada. Inicia sesión nuevamente.");
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Date utility
+
+<AccordionGroup>
+  <Accordion title="formatFullDate">
+    `lib/date.ts`
+
+    Formats a `Date` object as a full human-readable date string in Peruvian Spanish locale. Includes weekday, day number, month name, and year.
+
+    **Signature**
+
+    ```typescript
+    function formatFullDate(date?: Date): string
+    ```
+
+    The `date` parameter defaults to `new Date()` (today) if omitted.
+
+    **Output format**
+
+    The format follows `es-PE` locale conventions:
+
+    ```
+    lunes, 20 de mayo de 2026
+    ```
+
+    **Usage**
+
+    ```typescript
+    import { formatFullDate } from "@/lib/date";
+
+    // Current date
+    const hoy = formatFullDate();
+    // → "lunes, 20 de mayo de 2026"
+
+    // Specific date
+    const fecha = formatFullDate(new Date("2026-01-15"));
+    // → "jueves, 15 de enero de 2026"
+    ```
+
+    **Usage in a component**
+
+    ```tsx
+    import { formatFullDate } from "@/lib/date";
+
+    export default function DashboardHeader() {
+      return (
+        <p className="text-sm text-slate-500 capitalize">
+          {formatFullDate()}
+        </p>
+      );
+    }
+    ```
+
+    <Tip>
+      Wrap the output in a `capitalize` class (Tailwind `capitalize`) or call `.charAt(0).toUpperCase() + str.slice(1)` if you need the weekday capitalized, since `toLocaleDateString` returns it in lowercase for `es-PE`.
+    </Tip>
+  </Accordion>
+</AccordionGroup>

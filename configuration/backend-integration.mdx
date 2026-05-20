@@ -1,0 +1,164 @@
+---
+title: "Connect DRTC Fluvial Admin to the NestJS backend"
+description: "How the Next.js proxy rewrite, shared Axios instance, and dual-token session model connect the admin panel to the NestJS backend API."
+---
+
+DRTC Fluvial Admin is a pure frontend application — it has no database of its own. All data, authentication, and business logic lives in a separate NestJS backend. The admin panel communicates with that backend through a combination of a Next.js proxy rewrite and a shared Axios instance. Understanding how these two layers work together is essential before you can run or extend the panel.
+
+## API proxy setup
+
+The `next.config.ts` rewrite maps every request from `/api/*` in the browser to `/api/v1/*` on the NestJS backend:
+
+```typescript next.config.ts
+const nextConfig: NextConfig = {
+  async rewrites() {
+    return [
+      {
+        source: "/api/:path*",
+        destination: `${process.env.NEXT_PUBLIC_API_URL}/api/v1/:path*`,
+      },
+    ];
+  },
+};
+```
+
+This means the panel code always calls paths like `/api/auth/login` or `/api/propietario`, and Next.js handles the translation. The backend URL is never exposed to the browser.
+
+## Axios instance
+
+All API calls go through a shared Axios instance defined in `lib/axios.ts`:
+
+```typescript lib/axios.ts
+const axiosInstance = axios.create({
+  baseURL: "/api",
+  withCredentials: true,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+```
+
+- `baseURL: "/api"` — every call is automatically prefixed with `/api`, which then gets rewritten by Next.js to the backend.
+- `withCredentials: true` — cookies (including the `accessToken` httpOnly cookie) are sent with every cross-origin request.
+
+## Authentication and session management
+
+The panel uses two parallel mechanisms to track the authenticated user's session:
+
+**`accessToken` httpOnly cookie (set by NestJS)**
+After a successful `POST /api/auth/login`, the NestJS backend sets an `accessToken` httpOnly cookie. The browser stores and sends this cookie automatically on every request. The middleware in `proxy.ts` reads this cookie to protect routes server-side:
+
+```typescript proxy.ts
+const token = request.cookies.get("accessToken")?.value;
+
+if (!token && isProtectedRoute) {
+  return NextResponse.redirect(new URL("/auth", request.url));
+}
+```
+
+**`access_token` in localStorage (client-side)**
+The Axios request interceptor also reads a JWT from `localStorage` and attaches it as a `Bearer` token on every outgoing request:
+
+```typescript lib/axios.ts
+axiosInstance.interceptors.request.use((config) => {
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("access_token");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  }
+  return config;
+});
+```
+
+## Automatic token refresh
+
+When the backend returns a `401 Unauthorized` response, the Axios response interceptor transparently refreshes the session before retrying:
+
+```typescript lib/axios.ts
+axiosInstance.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    if (error.response?.status !== 401 || originalRequest._retry) {
+      return Promise.reject(error);
+    }
+
+    if (isRefreshing) {
+      // Queue the request until refresh completes
+      return new Promise((resolve, reject) => {
+        failedQueue.push({ resolve, reject });
+      }).then((token) => {
+        originalRequest.headers.Authorization = `Bearer ${token}`;
+        return axiosInstance(originalRequest);
+      });
+    }
+
+    originalRequest._retry = true;
+    isRefreshing = true;
+
+    const res = await axios.post("/api/auth/refresh", {}, { withCredentials: true });
+    const newToken = res.data.access_token;
+
+    localStorage.setItem("access_token", newToken);
+    processQueue(null, newToken);
+
+    return axiosInstance(originalRequest);
+  }
+);
+```
+
+If the refresh itself fails, the interceptor clears `localStorage` and redirects the user to `/auth`.
+
+## Setting up the connection
+
+<Steps>
+  <Step title="Start the NestJS backend">
+    The backend must be running and accessible before you start the admin panel. Confirm it responds at the URL you plan to use for `NEXT_PUBLIC_API_URL`.
+  </Step>
+  <Step title="Set the environment variable">
+    Create `.env.local` at the project root and point it to the backend:
+
+    ```bash .env.local
+    NEXT_PUBLIC_API_URL=http://localhost:3001
+    ```
+  </Step>
+  <Step title="Start the admin panel">
+    ```bash
+    pnpm dev
+    ```
+
+    Navigate to `http://localhost:3000`. The root redirects to `/auth` automatically.
+  </Step>
+  <Step title="Log in">
+    Submit credentials at `/auth`. The NestJS backend will set the `accessToken` cookie and the panel stores the JWT in `localStorage`. You are then redirected to `/fluvial/dashboard`.
+  </Step>
+</Steps>
+
+## API endpoints
+
+The table below lists every backend endpoint the admin panel calls, grouped by domain.
+
+| Endpoint | Method | Purpose |
+|---|---|---|
+| `/auth/login` | POST | Authenticate with email and password |
+| `/auth/refresh` | POST | Refresh the session using the httpOnly cookie |
+| `/dashboard` | GET | Fetch main dashboard summary data |
+| `/dashboard/stats` | GET | Fetch vessel registration statistics |
+| `/propietario` | GET | List all vessel owners (paginated) |
+| `/propietario/:id` | GET | Fetch a single owner by ID |
+| `/propietario/search` | GET | Search owners by DNI or RUC |
+| `/propietario` | POST | Create a new vessel owner |
+| `/propietario/:id` | PATCH | Update an existing vessel owner |
+| `/propietario/importar` | POST | Bulk import vessel owners |
+| `/personas/lookup` | GET | Look up a person by document number |
+| `/catalogos/ubicaciones` | GET | Fetch location catalog (department/province/district) |
+| `/catalogos/tipos-nave` | GET | Fetch vessel type catalog |
+| `/catalogos/materiales` | GET | Fetch vessel hull material catalog |
+| `/catalogos/servicios-nave` | GET | Fetch vessel service type catalog |
+| `/catalogos/modalidades` | GET | Fetch vessel operation modality catalog |
+
+<Info>
+  All paths above are relative to the proxy base (`/api`). For example, `/auth/login` is called as `/api/auth/login` by the Axios instance, which Next.js rewrites to `NEXT_PUBLIC_API_URL/api/v1/auth/login` on the backend.
+</Info>

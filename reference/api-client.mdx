@@ -1,0 +1,404 @@
+---
+title: "Axios API client: configuration and usage patterns"
+description: "How the centralized Axios instance is configured, how request and response interceptors handle authentication, and how shared API helpers are structured."
+---
+
+All HTTP requests in DRTC Fluvial Admin flow through a single, pre-configured Axios instance defined in `lib/axios.ts`. This instance sets the base URL, attaches the Bearer token on every outgoing request, and automatically handles token refresh when the API returns a `401 Unauthorized` response. By centralising this logic in one place, every feature and shared API helper benefits from consistent authentication and error handling without any extra setup.
+
+## Instance configuration
+
+The Axios instance is created with three base options:
+
+```typescript lib/axios.ts
+import axios from "axios";
+
+const axiosInstance = axios.create({
+  baseURL: "/api",
+  withCredentials: true,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+```
+
+| Option | Value | Effect |
+|--------|-------|--------|
+| `baseURL` | `"/api"` | All relative URLs are resolved against `/api`, which the Next.js API routes proxy to the backend |
+| `withCredentials` | `true` | Cookies (including `accessToken`) are sent with every request |
+| `Content-Type` | `application/json` | JSON body encoding is applied by default |
+
+## Request interceptor
+
+Before each request is sent, the interceptor reads `access_token` from `localStorage` and attaches it as a `Bearer` header:
+
+```typescript lib/axios.ts
+axiosInstance.interceptors.request.use((config) => {
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("access_token");
+
+    if (token) {
+      config.headers = config.headers ?? {};
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  }
+
+  return config;
+});
+```
+
+The `typeof window !== "undefined"` guard ensures this code does not execute during server-side rendering, where `localStorage` is unavailable.
+
+## Response interceptor: token refresh and request queuing
+
+When the API returns a `401`, the response interceptor attempts a silent token refresh before retrying the original request. Requests that arrive while a refresh is already in progress are queued and replayed once the new token is available.
+
+```typescript lib/axios.ts
+let isRefreshing = false;
+let failedQueue: any[] = [];
+
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+
+  failedQueue = [];
+};
+
+axiosInstance.interceptors.response.use(
+  (response) => response,
+
+  async (error) => {
+    const originalRequest = error.config;
+
+    // If not 401, or request already retried, propagate the error
+    if (error.response?.status !== 401 || originalRequest._retry) {
+      return Promise.reject(error);
+    }
+
+    // A refresh is already in flight — queue this request
+    if (isRefreshing) {
+      return new Promise((resolve, reject) => {
+        failedQueue.push({ resolve, reject });
+      }).then((token) => {
+        originalRequest.headers.Authorization = `Bearer ${token}`;
+        return axiosInstance(originalRequest);
+      });
+    }
+
+    originalRequest._retry = true;
+    isRefreshing = true;
+
+    try {
+      // Call the refresh endpoint
+      const res = await axios.post(
+        "/api/auth/refresh",
+        {},
+        { withCredentials: true }
+      );
+
+      const newToken = res.data.access_token;
+
+      if (!newToken) throw new Error("No access token returned");
+
+      localStorage.setItem("access_token", newToken);
+
+      axiosInstance.defaults.headers.common.Authorization =
+        `Bearer ${newToken}`;
+
+      processQueue(null, newToken);
+
+      return axiosInstance(originalRequest);
+    } catch (err) {
+      processQueue(err, null);
+
+      localStorage.removeItem("access_token");
+      window.location.href = "/auth";
+
+      return Promise.reject(err);
+    } finally {
+      isRefreshing = false;
+    }
+  }
+);
+```
+
+<Steps>
+  <Step title="Request returns 401">
+    The interceptor checks whether this request has already been retried (`_retry` flag). If it has, the error propagates normally.
+  </Step>
+  <Step title="Queue or refresh">
+    If another refresh is in progress (`isRefreshing === true`), the request is wrapped in a Promise and pushed onto `failedQueue`. Otherwise, `isRefreshing` is set to `true` and the refresh call begins.
+  </Step>
+  <Step title="Refresh succeeds">
+    The new `access_token` is stored in `localStorage`, set on the instance defaults, and passed to `processQueue`, which resolves every queued Promise. All queued requests then retry with the new token.
+  </Step>
+  <Step title="Refresh fails">
+    `processQueue` is called with the error, rejecting all queued requests. The stale token is removed from `localStorage` and the user is redirected to `/auth`.
+  </Step>
+</Steps>
+
+## Alternative: `fetchWithAuth`
+
+For cases where the native `fetch` API is preferred (for example, file uploads or streaming), `lib/fetchWithAuth.ts` provides a simpler wrapper with a single-retry refresh:
+
+```typescript lib/fetchWithAuth.ts
+export async function fetchWithAuth(url: string, options: RequestInit = {}) {
+  let res = await fetch(`/api${url}`, {
+    ...options,
+    credentials: "include",
+  });
+
+  if (res.status === 401) {
+    const refresh = await fetch(`/api/auth/refresh`, {
+      method: "POST",
+      credentials: "include",
+    });
+
+    if (refresh.ok) {
+      res = await fetch(`/api${url}`, {
+        ...options,
+        credentials: "include",
+      });
+    } else {
+      window.location.href = "/auth";
+    }
+  }
+
+  return res;
+}
+```
+
+<Note>
+`fetchWithAuth` does not queue concurrent requests during a refresh the way the Axios interceptor does. For data-fetching in components and hooks, prefer `axiosInstance`.
+</Note>
+
+## Shared API helpers
+
+Functions in `shared/api/` are thin wrappers around `axiosInstance` calls. They are used across multiple features and accept typed parameters and return types.
+
+### Persona lookup
+
+```typescript shared/api/personas.ts
+import axiosInstance from "@/lib/axios";
+
+export interface PersonaReferencia {
+  dniRuc: string;
+  nombreCompleto: string;
+  tipoEntidad?: string;
+}
+
+export async function getPersonaByDoc(doc: string) {
+  const response = await axiosInstance.get("/personas/lookup", {
+    params: { doc },
+  });
+
+  return response.data.data;
+}
+```
+
+### Propietario (vessel owner) CRUD
+
+```typescript shared/api/propietario.ts
+import axiosInstance from "@/lib/axios";
+
+export type TipoPersona = "NATURAL" | "JURIDICA" | "NATURAL_CON_RUC";
+
+export interface Propietario {
+  id: string;
+  dniRuc: string;
+  propietarioNombre: string;
+  tipoPersona: TipoPersona;
+  representanteLegal?: string | null;
+  correo?: string | null;
+  celular?: string | null;
+  direccionLegal?: string | null;
+  asociacion?: string | null;
+  ubicacionId?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type CreatePropietarioDto = Omit<Propietario, "id" | "createdAt" | "updatedAt">;
+export type UpdatePropietarioDto = Partial<CreatePropietarioDto>;
+
+const BASE = "/propietario";
+
+export const getPropietarios = async (page: number, limit: number) => {
+  const { data } = await axiosInstance.get(BASE, { params: { page, limit } });
+  return data;
+};
+
+export const getPropietarioById = async (id: string): Promise<Propietario> => {
+  const res = await axiosInstance.get(`${BASE}/${id}`);
+  return res.data;
+};
+
+export const searchPropietario = async (q: string, type?: string) => {
+  const { data } = await axiosInstance.get(`${BASE}/search`, {
+    params: { q, type },
+  });
+  return data;
+};
+
+export const createPropietario = async (
+  data: CreatePropietarioDto
+): Promise<Propietario> => {
+  const res = await axiosInstance.post(BASE, data);
+  return res.data;
+};
+
+export const updatePropietario = async (
+  id: string,
+  data: UpdatePropietarioDto
+): Promise<Propietario> => {
+  const res = await axiosInstance.patch(`${BASE}/${id}`, data);
+  return res.data;
+};
+
+export const importarPropietarios = async (data: any[]) => {
+  const res = await axiosInstance.post(`${BASE}/importar`, data);
+  return res.data;
+};
+```
+
+### Catalog helpers
+
+Each catalog endpoint follows the same one-function pattern: call `axiosInstance.get`, return `response.data.data`.
+
+<CodeGroup>
+
+```typescript catalogo-tipos-nave.ts
+import axiosInstance from "@/lib/axios";
+import { TipoNaveCatalogo } from "@/types/catalogos";
+
+export async function getTiposNave(): Promise<TipoNaveCatalogo[]> {
+  const response = await axiosInstance.get("/catalogos/tipos-nave");
+  return response.data.data;
+}
+```
+
+```typescript catalogo-materiales.ts
+import axiosInstance from "@/lib/axios";
+import { MaterialCatalogo } from "@/types/catalogos";
+
+export async function getMateriales(): Promise<MaterialCatalogo[]> {
+  const response = await axiosInstance.get("/catalogos/materiales");
+  return response.data.data;
+}
+```
+
+```typescript catalogo-servicios-nave.ts
+import axiosInstance from "@/lib/axios";
+import { ServicioNave } from "@/types/catalogos";
+
+export async function getServiciosNave(): Promise<ServicioNave[]> {
+  const response = await axiosInstance.get("/catalogos/servicios-nave");
+  return response.data.data;
+}
+```
+
+```typescript catalogo-modalidades.ts
+import axiosInstance from "@/lib/axios";
+import { ModalidadCatalogo } from "@/types/catalogos";
+
+export async function getModalidades(): Promise<ModalidadCatalogo[]> {
+  const response = await axiosInstance.get("/catalogos/modalidades");
+  return response.data.data;
+}
+```
+
+</CodeGroup>
+
+## TypeScript catalog types
+
+All catalog responses share a common base interface defined in `types/catalogos.ts`:
+
+```typescript types/catalogos.ts
+export interface CatalogoBase {
+  id: string;
+  codigo: string;
+  nombre: string;
+}
+
+export type TipoNaveCatalogo = CatalogoBase;
+export type MaterialCatalogo = CatalogoBase;
+export type ModalidadCatalogo = CatalogoBase;
+export type ServicioNave = CatalogoBase;
+```
+
+Each catalog type is an alias of `CatalogoBase`. Use the specific type alias (for example `TipoNaveCatalogo`) rather than `CatalogoBase` directly so that TypeScript error messages and IDE completions reference the correct domain name.
+
+## Usage example: calling the dashboard API
+
+Feature-level API functions follow the same pattern. Here is the dashboard stats function and a minimal example of how you would call it inside a React component:
+
+```typescript features/fluvial/dashboard/services/dashboard.api.ts
+import axiosInstance from "@/lib/axios";
+
+const api = axiosInstance;
+
+export async function getDashboardStats() {
+  const res = await api.get("/dashboard");
+  return res.data;
+}
+```
+
+```typescript features/fluvial/dashboard/hooks/useDashboardData.ts
+import { useEffect, useState } from "react";
+import { getDashboardStats } from "../services/dashboard.api";
+
+export function useDashboardData() {
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getDashboardStats()
+      .then(setStats)
+      .finally(() => setLoading(false));
+  }, []);
+
+  return { stats, loading };
+}
+```
+
+<Tip>
+When you create a new feature API file, place it under `features/<feature>/services/` and name it `<feature>.api.ts`. Import `axiosInstance` from `@/lib/axios` — never create a separate Axios instance.
+</Tip>
+
+## Toast helpers
+
+`lib/toast.ts` provides three scoped toast objects so that notifications from different parts of the interface appear in distinct positions on screen:
+
+```typescript lib/toast.ts
+import toast from "react-hot-toast";
+
+// Vessel registration — left toaster
+export const toastEmpadronamiento = {
+  success: (msg: string, id?: string) =>
+    toast.success(msg, { id, toasterId: "left" }),
+  error: (msg: string, id?: string) =>
+    toast.error(msg, { id, toasterId: "left" }),
+  loading: (msg: string) =>
+    toast.loading(msg, { toasterId: "left" }),
+};
+
+// Operation permits — center toaster
+export const toastPermisos = {
+  success: (msg: string) => toast.success(msg, { toasterId: "center" }),
+  error: (msg: string) => toast.error(msg, { toasterId: "center" }),
+  loading: (msg: string) => toast.loading(msg, { toasterId: "center" }),
+};
+
+// Auth and general actions — right toaster
+export const toastGeneral = {
+  success: (msg: string) => toast.success(msg, { toasterId: "right" }),
+  error: (msg: string) => toast.error(msg, { toasterId: "right" }),
+  loading: (msg: string) => toast.loading(msg, { toasterId: "right" }),
+};
+```
+
+Use `toastEmpadronamiento` in vessel registration flows, `toastPermisos` in permit flows, and `toastGeneral` for authentication feedback and general-purpose notifications.

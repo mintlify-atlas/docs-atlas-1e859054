@@ -1,0 +1,160 @@
+---
+title: "Register river vessels with empadronamiento workflow"
+description: "Empadronamiento registers river vessels and their owners with DRTC. Covers the multi-step form, DNI/RUC validation, guided tours, and voice accessibility."
+---
+
+Empadronamiento is the formal administrative process by which DRTC Amazonas registers river vessels and their owners in the regional fluvial registry. Every commercial or tourist vessel operating on Amazonian waterways must complete this process before receiving an operating permit. The admin panel's empadronamiento module lets operators capture vessel and owner data, choose the appropriate procedure type, and submit the registration through a guided multi-step form.
+
+## Procedure types
+
+Before opening the registration form, you navigate to the **Opciones** screen (`/fluvial/tramites/empadronamiento/opciones`), where you choose among five procedure types:
+
+| Procedure | Description |
+|-----------|-------------|
+| **Registrar Solo Propietario** | Formal enrollment of a natural or legal person with DRTC, without vessel data |
+| **Registrar Nave + Propietario** | Combined registration of vessel and owner data |
+| **Solicitud de Empadronamiento** | Registration request for minor vessels without a prior Resolución Directorial; requires document validation and technical verification |
+| **Empadronamiento con Resolución** | Full formalisation flow including technical inspection, document validation, and issuance of a Resolución Directorial |
+| **Generar Constancia de Empadronamiento** | Emission of a registration certificate for vessels already in the regional registry; requires matricula number |
+
+## Registration form
+
+The main registration form (`RegistrarDatosPage`) is reached via `/fluvial/tramites/empadronamiento/opciones/formulario/registrar-nave-propietario` (or the relevant procedure route). The form is divided into three named sections.
+
+<Steps>
+  <Step title="Datos del Titular (owner information)">
+    This section (`#bloque-titular`) collects the legal identity of the vessel owner.
+
+    First, select the owner type using the toggle:
+    - **Persona Natural** — an individual owner
+    - **Persona Jurídica** — a company or legal entity
+
+    The owner type determines which fields and validation rules apply:
+
+    | Field | Persona Natural | Persona Jurídica | Required |
+    |-------|----------------|-----------------|----------|
+    | DNI | 8 digits (numbers only) | — | Yes |
+    | RUC | — | 11 digits (numbers only) | Yes |
+    | Nombre Completo | Full name | — | Yes |
+    | Razón Social | — | Company name | Yes |
+    | Código del Expediente | Reference code (e.g. `EXP-2024-000`) | Same | No |
+    | Dirección Legal | Legal address (e.g. `Av. Principal 123, Iquitos`) | Same | Yes |
+
+    The DNI and RUC fields enforce numeric-only input and automatically cap entry at 8 or 11 characters respectively. Non-numeric characters are stripped on input.
+  </Step>
+  <Step title="Datos de la Nave (vessel information)">
+    This section (`#bloque-nave`) captures all vessel-specific data in a three-column grid.
+
+    **Text and numeric fields:**
+
+    | Field | Example value | Required |
+    |-------|--------------|----------|
+    | Nombre de la Nave | El Amazónico II | No |
+    | Matrícula | PM-12345-BF | Yes |
+    | Capacidad de la nave A.B | Number of passengers or cargo in TM | No |
+    | Color | Azul y Blanco | No |
+
+    **Dropdown fields:**
+
+    **Tipo de Nave** (vessel type)
+    - Simple (`Tipo_simple`)
+    - No definido (`No_definido`)
+
+    **Servicio de la Nave** (service type) — required
+    - Transporte Comercial (`transporte_comercial`)
+    - Transporte Turístico (`transporte_turistico`)
+
+    **Modalidad de Servicio** (service modality) — required
+    - De carga y pasajeros menor a 2 A.B
+    - De carga y pasajeros mayor a 2 A.B
+    - De pasajeros menor a 2 A.B
+    - De carga mayor a 2 A.B
+    - De uso exclusivo de personal
+
+    **Material del Casco** (hull material) — required
+    - Fibra de Vidrio (`Fibra_vidrio`)
+    - Madera (`Madera`)
+    - Acero Naval (`Acero_naval`)
+    - Aluminio (`Aluminio`)
+    - Aluminio Naval (`Aluminio_naval`)
+    - No especificado (`No_especificado`)
+  </Step>
+  <Step title="Datos del Motor (engine information)">
+    This section (`#bloque-motor`) captures the vessel's propulsion data in a two-column grid.
+
+    | Field | Example value | Required |
+    |-------|--------------|----------|
+    | Marca del Motor | Yamaha, Volvo Penta | No |
+    | Potencia (HP) | 250 | No |
+
+    After completing all three sections, click **Guardar Datos**. A confirmation dialog appears before the save executes. If any required field is empty, the form lists the missing fields by label in a warning dialog and prevents submission.
+  </Step>
+</Steps>
+
+## Validation behaviour
+
+The form performs client-side validation on submit. The `handleSubmit` function scans all `input` and `select` elements with the `required` attribute. If any required field is empty, a SweetAlert2 dialog lists every missing field by its label. The save request only proceeds after you confirm the "¿Guardar datos?" dialog.
+
+For the DNI/RUC field specifically, the `onInput` handler strips any non-numeric characters in real time and enforces the `maxLength` cap (8 for DNI, 11 for RUC), so it is impossible to enter letters or exceed the allowed length.
+
+## Guided tour features
+
+The form provides three ways to get step-by-step guidance, all accessible from fixed-position buttons on the right side of the screen.
+
+Two tour buttons appear in the top-right corner:
+
+| Button | Tour scope | Source |
+|--------|-----------|--------|
+| **Guía rápida** (blue) | Highlights the three section blocks: Titular (`#bloque-titular`), Nave (`#bloque-nave`), Motor (`#bloque-motor`) | `EMPADRONAMIENTO_TOURS.bloques` |
+| **Guía detallada** (slate) | Full walkthrough starting from Titular, then zooming into individual fields like Tipo de Persona (`#Tipo_persona`) and DNI/RUC (`#dni-ruc`) | `EMPADRONAMIENTO_TOURS.completo` |
+
+The guided tour launches automatically the first time a user opens the form. A `localStorage` flag (`tour_empadronamiento`) prevents it from replaying on return visits.
+
+```typescript
+// shared/tours/empadronamiento.tour.ts (bloques tour)
+{
+  element: "#bloque-titular",
+  popover: { title: "Datos del Titular", description: "Aquí ingresas los datos del propietario" }
+},
+{
+  element: "#bloque-nave",
+  popover: { title: "Datos de la Nave", description: "Información de la embarcación" }
+},
+{
+  element: "#bloque-motor",
+  popover: { title: "Motor", description: "Datos del motor" }
+}
+```
+
+## Voice guide
+
+A floating circular button in the bottom-right corner activates the text-to-speech voice guide:
+
+<Tip>
+Click the speaker button (🔊) to start the audio guide. The guide walks you through each section in sequence: owner data → vessel data → service modality → engine data → save. Click the stop button (⏹️) to pause the narration at any time. This feature uses the browser's Web Speech API via the `useSpeech` hook and requires no additional plugins.
+</Tip>
+
+The voice guide reads the `GUIA_FORMULARIO` script:
+
+```typescript
+// features/fluvial/tramites/empadronamiento/shared/utils/guiaFormulario.ts
+export const GUIA_FORMULARIO: string = `
+Bienvenido al formulario de empadronamiento fluvial.
+
+Primero, complete los datos del titular.
+Seleccione si es persona natural o jurídica.
+
+Luego, registre los datos de la nave,
+como nombre, capacidad, tipo y servicio.
+
+Después, seleccione la modalidad de servicio.
+
+Finalmente, ingrese los datos del motor.
+
+Cuando termine, presione guardar datos.
+`;
+```
+
+## Registration dashboard
+
+After vessels are registered, they appear in the empadronamiento dashboard at `/fluvial/tramites/empadronamiento/dashboard`. The table page (`TablePage`) lets you search records by **Código** (e.g. `001-2025`), **DNI**, or **RUC**. Records are sorted by year descending, then by registration number descending. Click any row to open the `ModalDetalle` with the full vessel and owner record.

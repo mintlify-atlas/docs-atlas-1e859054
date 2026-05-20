@@ -1,0 +1,115 @@
+---
+title: "Deploy DRTC Fluvial Admin to production"
+description: "Build and deploy the DRTC Fluvial Admin Next.js 16 application to production on Vercel or any Node.js host with a deployment checklist."
+---
+
+DRTC Fluvial Admin is a standard Next.js 16 application. You can deploy it anywhere that runs Node.js: Vercel (the recommended path for Next.js apps), a VPS, or any cloud platform that supports `next start`. Regardless of where you deploy, the single requirement is that the NestJS backend is running and reachable from your production host before you point traffic at the panel.
+
+## Building for production
+
+Before deploying anywhere, verify that the application builds cleanly. Run the build locally with your production environment variable set:
+
+<CodeGroup>
+
+```bash pnpm
+NEXT_PUBLIC_API_URL=https://api.your-backend-domain.com pnpm build
+```
+
+```bash npm
+NEXT_PUBLIC_API_URL=https://api.your-backend-domain.com npm run build
+```
+
+```bash yarn
+NEXT_PUBLIC_API_URL=https://api.your-backend-domain.com yarn build
+```
+
+</CodeGroup>
+
+A successful build produces an optimized `.next/` directory. To run the production server locally after building:
+
+<CodeGroup>
+
+```bash pnpm
+pnpm start
+```
+
+```bash npm
+npm run start
+```
+
+```bash yarn
+yarn start
+```
+
+</CodeGroup>
+
+The app starts on port 3000 by default. Use `--port` to change it:
+
+```bash
+pnpm start -- --port 8080
+```
+
+## Deploying to Vercel
+
+Vercel is the recommended hosting platform for Next.js applications. It handles builds, CDN distribution, and serverless functions automatically.
+
+<Steps>
+  <Step title="Install the Vercel CLI (optional)">
+    You can deploy through the Vercel dashboard without the CLI. If you prefer the terminal:
+
+    ```bash
+    npm i -g vercel
+    ```
+  </Step>
+  <Step title="Connect your repository">
+    Go to [vercel.com/new](https://vercel.com/new) and import your Git repository. Vercel detects Next.js automatically and sets the framework preset.
+  </Step>
+  <Step title="Set environment variables">
+    In your Vercel project, go to **Settings → Environment Variables** and add:
+
+    | Variable | Value |
+    |---|---|
+    | `NEXT_PUBLIC_API_URL` | `https://api.your-backend-domain.com` |
+
+    Set the environment scope to **Production** (and optionally **Preview** with a staging backend URL).
+  </Step>
+  <Step title="Deploy">
+    Trigger a deployment from the dashboard by pushing to your main branch, or run from the CLI:
+
+    ```bash
+    vercel --prod
+    ```
+
+    Vercel runs `next build` automatically using the environment variables you configured.
+  </Step>
+  <Step title="Verify the deployment">
+    Open the production URL Vercel assigns you. The root path redirects to `/auth`. Confirm you can log in and that the dashboard loads data. If the dashboard is blank, check that `NEXT_PUBLIC_API_URL` is set correctly and that the backend is accessible from Vercel's network.
+  </Step>
+</Steps>
+
+## Required environment variables in production
+
+Only one environment variable is required to run the panel:
+
+| Variable | Required | Description |
+|---|---|---|
+| `NEXT_PUBLIC_API_URL` | Yes | The base URL of the NestJS backend (no trailing slash) |
+
+<Warning>
+  Ensure the NestJS backend is publicly accessible from your production domain before deploying the admin panel. If the backend is behind a firewall or private network that Vercel's servers cannot reach, all API calls — including login — will fail with network errors. Test reachability from the production host before going live.
+</Warning>
+
+## Deployment checklist
+
+Before sending production traffic to the panel, verify the following:
+
+- `NEXT_PUBLIC_API_URL` is set to the production backend URL in your deployment environment
+- The NestJS backend is running and accepts HTTPS requests at that URL
+- The backend's CORS configuration allows the production domain of the admin panel
+- `pnpm build` completes without errors when using the production `NEXT_PUBLIC_API_URL`
+- The `/auth` login page works end-to-end in production (NestJS sets the `accessToken` cookie correctly)
+- Protected routes (`/fluvial/dashboard`, `/fluvial/tramites/permiso-operacion`, `/fluvial/tramites/renovacion`) redirect unauthenticated visitors to `/auth`
+
+<Tip>
+  Set `NEXT_PUBLIC_API_URL` in a **Preview** environment as well, pointing to a staging NestJS instance. This lets you test pull request deployments against real API data before merging to production.
+</Tip>

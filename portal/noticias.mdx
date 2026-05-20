@@ -1,0 +1,49 @@
+---
+title: "Publish and manage news articles for the portal"
+description: "Create, edit, and control the visibility of news articles shown to citizens on the public-facing DRTC Amazonas portal website from the admin panel."
+---
+
+The **Noticias** section is the content management interface for news articles published on the public DRTC Amazonas portal. You use it to keep citizens informed about regulatory updates, new services, office announcements, and operational changes that affect fluvial transport in the Amazonas region.
+
+## What a news article contains
+
+Each news article you publish on the portal includes the following information:
+
+- **Título** — The headline displayed in the article list and at the top of the article detail page.
+- **Cuerpo / Contenido** — The full body text of the article, which may include multiple paragraphs.
+- **Fecha de publicación** — The date shown to citizens alongside the article.
+- **Estado** — Whether the article is published (visible on the portal) or saved as a draft.
+
+<Tip>
+  Write titles that are specific and actionable. Citizens scan headlines quickly — "Nuevos requisitos para empadronamiento de embarcaciones menores" is more useful than "Actualización importante". Keep the body text short and direct: state the change, who it affects, and what citizens must do.
+</Tip>
+
+## Creating a news article
+
+<Steps>
+  <Step title="Navigate to Noticias">
+    In the sidebar, expand the **ADMINISTRAR PORTAL WEB** section and click **Noticias**. This opens the news management page at `/portal-web/noticias`.
+  </Step>
+  <Step title="Open the new article form">
+    Click the **Nuevo** button in the sidebar footer to open the article creation form.
+  </Step>
+  <Step title="Fill in the article details">
+    Enter the **Título**, set the **Fecha de publicación**, and write the article body in the **Contenido** field. All three fields are required before you can save.
+  </Step>
+  <Step title="Save and publish">
+    To make the article immediately visible on the public portal, set the estado to **Publicado** before saving. To keep it hidden while you finish editing, save it as **Borrador** and publish it later.
+  </Step>
+</Steps>
+
+## Editing and unpublishing articles
+
+To edit an existing article, click its row in the Noticias list. You can update any field and save changes at any time. To remove an article from public view without deleting it, change its estado back to **Borrador**.
+
+## Sidebar navigation
+
+The **Noticias** entry appears under **ADMINISTRAR PORTAL WEB** in the sidebar, directly below **Tipos de Trámites**. Both portal management pages are fully active — neither carries the "Próx" (coming soon) badge that some backoffice workflow pages display.
+
+| Entry | Route |
+|---|---|
+| Tipos de Trámites | `/portal-web/tramites` |
+| Noticias | `/portal-web/noticias` |

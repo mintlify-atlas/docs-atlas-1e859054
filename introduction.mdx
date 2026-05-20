@@ -1,0 +1,70 @@
+---
+title: "DRTC Fluvial Admin: River Transport Management Panel"
+description: "DRTC Fluvial Admin is a Next.js 16 panel for DRTC Amazonas to manage vessel registrations, citizen appointments, permits, and public portal content."
+---
+
+DRTC Fluvial Admin is the official administrative panel for the Dirección Regional de Transportes y Comunicaciones (DRTC) of Amazonas, Peru. Built with Next.js 16 and React 19, it provides officials with a secure, modern interface to manage all aspects of fluvial (river) transport regulation — from vessel registration to appointment scheduling and public portal content.
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Set up your local environment and access the admin panel in minutes
+  </Card>
+  <Card title="Authentication" icon="lock" href="/authentication">
+    Learn how login, session management, and token refresh work
+  </Card>
+  <Card title="Vessel Registration" icon="ship" href="/features/vessel-registration">
+    Register and manage river vessels with the empadronamiento workflow
+  </Card>
+  <Card title="Appointments" icon="calendar" href="/features/appointments">
+    Schedule, view, and manage citizen appointments for fluvial services
+  </Card>
+</CardGroup>
+
+## What you can do with DRTC Fluvial Admin
+
+The panel is organized into four main functional areas:
+
+<CardGroup cols={2}>
+  <Card title="Dashboard" icon="chart-bar" href="/features/dashboard">
+    Real-time statistics and KPI cards for operations overview
+  </Card>
+  <Card title="Fluvial Services" icon="anchor" href="/features/vessel-registration">
+    Empadronamiento, operation permits, and renewal workflows
+  </Card>
+  <Card title="Portal Web CMS" icon="globe" href="/portal/tramites">
+    Manage public-facing tramite types and news articles
+  </Card>
+  <Card title="Developer Reference" icon="code" href="/reference/project-structure">
+    Architecture, routing, shared components, and API client docs
+  </Card>
+</CardGroup>
+
+## Key features
+
+- **JWT authentication** with automatic silent token refresh — sessions stay active without interrupting staff workflows
+- **Vessel registration (empadronamiento)** — multi-step forms capturing owner data, vessel specs, and motor details with voice-guide accessibility
+- **Appointment management** — agenda view, appointment generation, and full appointment history
+- **Interactive guided tours** — built-in onboarding tours using driver.js for new staff members
+- **Portal web CMS** — manage public tramite listings and news articles displayed on the citizen-facing website
+- **Document reception** — receive, review, and track incoming document submissions
+
+## Getting started
+
+<Steps>
+  <Step title="Set up your environment">
+    Install Node.js 18+ and pnpm, then clone the repository and install dependencies
+  </Step>
+  <Step title="Configure the backend URL">
+    Set the `NEXT_PUBLIC_API_URL` environment variable to point to your NestJS backend
+  </Step>
+  <Step title="Run the development server">
+    Execute `pnpm dev` to start the admin panel at `http://localhost:3000`
+  </Step>
+  <Step title="Log in with admin credentials">
+    Navigate to `/auth` and sign in with your institutional email and password
+  </Step>
+</Steps>
+
+<Note>
+  DRTC Fluvial Admin requires a running NestJS backend. See the [Backend Integration](/configuration/backend-integration) guide to configure the API connection.
+</Note>

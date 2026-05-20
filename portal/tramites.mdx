@@ -1,0 +1,63 @@
+---
+title: "Manage public tramite listings in the portal CMS"
+description: "Configure fluvial procedure types and their requisito lists displayed to citizens on the public-facing DRTC Amazonas portal website."
+---
+
+The **Tipos de Trámites** section lets you control which fluvial procedures are visible on the public DRTC Amazonas website and what information citizens see when they look up requirements before starting a process. Changes you make here are reflected directly on the public portal — not in the internal backoffice workflow.
+
+## Tramite types
+
+The following fluvial procedure types can be configured and published to the portal:
+
+<CardGroup cols={2}>
+  <Card title="Empadronamiento" icon="ship">
+    Vessel registration procedures, including new owner registration, vessel + owner enrollment, and constancia generation.
+  </Card>
+  <Card title="Permisos de Operación" icon="file-text">
+    Operation permit applications for river vessels authorized to carry passengers or cargo on Amazonian routes.
+  </Card>
+  <Card title="Renovación" icon="refresh-cw">
+    Renewal of existing vessel registrations and operating permits approaching expiry.
+  </Card>
+  <Card title="Cambio de Razón Social" icon="building-2">
+    Procedures for updating the registered legal name or ownership entity of a vessel on record.
+  </Card>
+</CardGroup>
+
+For each tramite type you can set a public-facing title, description, and the list of requisitos (requirements) citizens must prepare before visiting the DRTC office.
+
+## Requisitos management
+
+Each tramite type has its own requisitos sub-section, accessible at `/portal-web/tramites/requisitos`. Requisitos are the documents and conditions a citizen must meet to submit a procedure. You can add, edit, reorder, and remove individual requisito items per tramite type.
+
+<Note>
+  The **Tipos de Trámites** and **Requisitos** sections manage only the public portal content. They do not affect the internal processing workflow — changes here update what citizens read on the website, but do not modify how backoffice staff process submitted applications.
+</Note>
+
+## Adding or editing a tramite
+
+<Steps>
+  <Step title="Navigate to Tipos de Trámites">
+    In the sidebar, expand the **ADMINISTRAR PORTAL WEB** section and click **Tipos de Trámites**. You will land on the tramites management page at `/portal-web/tramites`.
+  </Step>
+  <Step title="Select or create a tramite type">
+    To edit an existing tramite, click its row in the list. To add a new one, use the **Nuevo** button in the sidebar footer. Provide a public-facing name and a brief description that citizens will see on the portal.
+  </Step>
+  <Step title="Configure requisitos">
+    After saving the tramite, open its **Requisitos** sub-section. Add each required document or condition as a separate item. Keep each item concise — citizens will read this list before preparing their paperwork.
+  </Step>
+  <Step title="Publish the tramite">
+    Toggle the visibility switch to make the tramite appear on the public portal. Unpublished tramites remain saved in the admin but are hidden from citizens until you publish them.
+  </Step>
+</Steps>
+
+## Sidebar navigation
+
+The **ADMINISTRAR PORTAL WEB** section of the sidebar contains two entries:
+
+| Entry | Route | Purpose |
+|---|---|---|
+| Tipos de Trámites | `/portal-web/tramites` | Manage procedure listings |
+| Noticias | `/portal-web/noticias` | Manage news articles |
+
+Both entries are always visible and are not marked as disabled — unlike some backoffice items such as **Permisos de Operación** and **Cambio de Razón Social**, which display a "Próx" badge when not yet available.

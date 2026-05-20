@@ -1,0 +1,82 @@
+---
+title: "Operations dashboard: fluvial services overview"
+description: "The DRTC Fluvial dashboard shows KPI cards, a live activity sidebar, traffic trends, and today's appointment agenda in a single view."
+---
+
+The dashboard is the first screen you see after logging in to the DRTC Fluvial Admin panel. It consolidates the most important operational data into a single view: active registrations, pending appointments, incoming traffic, and a mini agenda for the current day. From here you can navigate to any module using the sidebar on the left.
+
+## KPI statistics cards
+
+The stats grid at the top of the dashboard renders a row of `StatsCard` components. Each card displays a metric label (`title`) and its current value (`value`). The cards are populated by calling `GET /api/dashboard` via the `getDashboardStats` service function:
+
+```typescript
+// features/fluvial/dashboard/services/dashboard.api.ts
+export async function getDashboardStats() {
+  const res = await api.get("/dashboard");
+  return res.data;
+}
+```
+
+The response is consumed by the `useDashboardData` hook, which maps each item in the returned array to a `StatsCard`. Cards are arranged in a three-column grid — if the API returns six metrics, you will see two rows of three cards.
+
+<Note>
+The `/api/dashboard` endpoint returns the full stats array. There is no separate `/api/dashboard/stats` route in the current codebase — all statistics are served from the single `/dashboard` path.
+</Note>
+
+## Dashboard layout sections
+
+The dashboard is composed of four distinct areas:
+
+<CardGroup cols={2}>
+  <Card title="Stats grid" icon="chart-bar">
+    The top section renders the KPI cards returned by `GET /api/dashboard`. Each card shows a plain-language metric title and a bold numeric or text value. The grid uses three columns on desktop and stacks to a single column on mobile.
+  </Card>
+  <Card title="Live sidebar" icon="signal">
+    The `LiveSidebar` component sits on the left side of the main content area (4 of 12 columns). It shows real-time activity such as which vessels or operators are currently being processed.
+  </Card>
+  <Card title="Traffic insight" icon="arrow-trend-up">
+    The `TrafficInsight` component appears below the live sidebar. It visualises incoming request volume so operators can anticipate busy periods and allocate attention windows accordingly.
+  </Card>
+  <Card title="Mini agenda" icon="calendar-days">
+    The `MiniAgenda` component occupies the right 8 columns of the main content area. It displays a condensed view of today's scheduled appointments, giving operators an at-a-glance timeline without leaving the dashboard.
+  </Card>
+</CardGroup>
+
+## Operational alert
+
+When three or more appointments exceed the 15-minute wait threshold, the appointments agenda panel surfaces a `DelayAlert` banner. This alert is also visible from the dashboard's mini agenda section so you can respond without switching views.
+
+## Interactive guided tour
+
+The first time you open the dashboard, an interactive overlay tour launches automatically. The tour is defined in `shared/tours/dashboard.tour.ts` and highlights two elements:
+
+| Tour step | Target element | Description |
+|-----------|---------------|-------------|
+| 1 | `#menu` | Points to the left sidebar and explains how to navigate between modules |
+| 2 | `#cards` | Points to the KPI stats grid and explains the primary indicators |
+
+```typescript
+// shared/tours/dashboard.tour.ts
+export const DASHBOARD_TOUR = [
+  {
+    element: "#menu",
+    popover: {
+      title: "Menú",
+      description: "Aquí navegas por el sistema",
+    },
+  },
+  {
+    element: "#cards",
+    popover: {
+      title: "Resumen",
+      description: "Indicadores principales",
+    },
+  },
+];
+```
+
+The tour uses the `useTour` hook. Once completed, a flag is written to `localStorage` so the tour does not replay on subsequent visits.
+
+## Sidebar navigation
+
+The sidebar is always visible and groups navigation items into four sections: **Principal** (dashboard and appointments), **Recepción Documentaria** (document intake and review queues), **Servicios Fluviales** (empadronamiento, permits, renewals), and **Administrar Portal Web** (procedure types and news). You can collapse the sidebar to icon-only mode using the toggle button at the top right of the panel.

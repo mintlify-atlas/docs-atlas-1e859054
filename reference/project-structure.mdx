@@ -1,0 +1,188 @@
+---
+title: "DRTC Fluvial Admin project structure and conventions"
+description: "A guide to the feature-based directory layout, naming conventions, and module boundaries used across the DRTC Fluvial Admin Next.js codebase."
+---
+
+The DRTC Fluvial Admin codebase uses a **feature-based architecture** where each functional domain (appointments, vessel registration, permits, etc.) owns its components, hooks, pages, and services in isolation. Shared infrastructure — API helpers, UI primitives, and utility libraries — lives in dedicated top-level directories that any feature can import. This separation keeps feature modules self-contained and makes it straightforward to locate all code related to a given business capability without searching across the entire repository.
+
+## Top-level layout
+
+The repository root contains the following directories and key configuration files:
+
+```
+drtc-fluvial-admin/
+├── app/                    # Next.js App Router — pages and layouts
+├── features/               # Feature modules (business logic lives here)
+│   └── fluvial/            # All river transport features
+├── shared/                 # Cross-feature components, hooks, and API helpers
+├── lib/                    # Low-level utilities: axios, auth, toast, date
+├── types/                  # Shared TypeScript interfaces
+├── public/                 # Static assets served at /
+├── proxy.ts                # Middleware route protection logic
+├── next.config.ts          # Next.js configuration
+├── tsconfig.json           # TypeScript configuration with @/ path alias
+└── package.json
+```
+
+<AccordionGroup>
+
+<Accordion title="app/ — Next.js App Router pages">
+
+The `app/` directory follows Next.js App Router conventions. Every file named `page.tsx` becomes a route, and every `layout.tsx` wraps a segment and its children.
+
+```
+app/
+├── layout.tsx                          # Root layout (HTML shell, global styles)
+├── page.tsx                            # Root — immediately redirects to /auth
+├── globals.css                         # Global Tailwind entry point
+├── favicon.ico
+├── auth/                               # /auth — login page
+├── olvide-contrasena/                  # /olvide-contrasena — password recovery
+└── (backoffice)/                       # Route group — authenticated shell
+    ├── layout.tsx                      # Sidebar + Navbar + Footer wrapper
+    ├── fluvial/
+    │   ├── dashboard/                  # /fluvial/dashboard
+    │   ├── citas/
+    │   │   ├── agenda/                 # /fluvial/citas/agenda
+    │   │   ├── generar/                # /fluvial/citas/generar
+    │   │   └── historial/              # /fluvial/citas/historial
+    │   └── tramites/
+    │       ├── empadronamiento/        # Vessel registration sub-routes
+    │       │   ├── (dashboard)/        # Nested route group
+    │       │   │   ├── dashboard/
+    │       │   │   ├── propietarios/
+    │       │   │   └── naves/
+    │       │   └── opciones/
+    │       ├── permiso-operacion/      # /fluvial/tramites/permiso-operacion
+    │       └── renovacion/             # /fluvial/tramites/renovacion
+    └── portal-web/
+        ├── tramites/                   # /portal-web/tramites
+        └── noticias/                   # /portal-web/noticias
+```
+
+Route groups like `(backoffice)` and `(dashboard)` are directory names wrapped in parentheses. Next.js strips them from the URL, so they exist only to apply a shared layout to a subset of pages.
+
+<Note>
+Each `page.tsx` file in `app/` is intentionally thin — it imports and renders a page component from `features/`. Business logic does not live in the `app/` directory.
+</Note>
+
+</Accordion>
+
+<Accordion title="features/fluvial/ — feature modules">
+
+Every business capability is a self-contained module under `features/fluvial/`. You will find these four sub-directories in each module:
+
+```
+features/fluvial/
+├── dashboard/
+│   ├── components/         # React components used only by this feature
+│   │   └── StatsCard.tsx
+│   ├── hooks/              # Custom React hooks
+│   │   └── useDashboardData.ts
+│   ├── pages/              # Full page components rendered by app/
+│   │   └── DashboardPage.tsx
+│   ├── services/           # API call functions
+│   │   └── dashboard.api.ts
+│   └── index.ts            # Public barrel export
+├── citas/
+│   ├── agenda/
+│   │   ├── components/
+│   │   ├── hooks/
+│   │   ├── pages/
+│   │   └── index.ts
+│   ├── generar/
+│   └── historial/
+├── tramites/
+│   └── empadronamiento/
+└── propietarios-naves/
+    ├── listar/
+    └── registrar/
+```
+
+Follow this convention when you add a new feature:
+
+1. Create a directory under `features/fluvial/<feature-name>/`.
+2. Add `components/`, `hooks/`, `pages/`, and `services/` as needed.
+3. Export the public API from an `index.ts` barrel file.
+4. Create the corresponding `app/(backoffice)/...page.tsx` that imports from `pages/`.
+
+<Tip>
+Keeping services co-located with their feature makes it easy to delete an entire feature without leaving orphaned API calls scattered across the codebase.
+</Tip>
+
+</Accordion>
+
+<Accordion title="shared/ — cross-feature code">
+
+The `shared/` directory holds code that two or more features depend on. Nothing in `shared/` should import from `features/`.
+
+```
+shared/
+├── api/                        # Reusable API helper functions
+│   ├── personas.ts             # getPersonaByDoc()
+│   ├── propietario.ts          # CRUD for vessel owners
+│   ├── catalogo-tipos-nave.ts  # getTiposNave()
+│   ├── catalogo-materiales.ts  # getMateriales()
+│   ├── catalogo-servicios-nave.ts
+│   ├── catalogo-ubicaciones.ts
+│   └── catologo-modalidades.ts
+├── components/                 # Shared UI components
+│   ├── Sidebar.tsx
+│   ├── Navbar.tsx
+│   ├── Footer.tsx
+│   ├── Button.tsx
+│   ├── ModalBase.tsx
+│   ├── BackButton.tsx
+│   ├── TitleHeader.tsx
+│   ├── SubNavbarProps.tsx
+│   └── table-pagination/
+├── hooks/                      # Shared React hooks
+│   ├── useTiposNave.ts
+│   ├── useMateriales.ts
+│   ├── useModalidades.ts
+│   ├── useServiceNave.ts
+│   ├── useUbicaciones.ts
+│   ├── usePersonaVerification.ts
+│   ├── useSpeech.ts
+│   ├── useTour.ts
+│   └── propietario/
+├── cache/                      # Client-side caching utilities
+└── tours/                      # Onboarding tour step definitions
+    ├── login.tour.ts
+    ├── dashboard.tour.ts
+    └── empadronamiento.tour.ts
+```
+
+</Accordion>
+
+<Accordion title="lib/ — low-level utilities">
+
+The `lib/` directory contains singleton instances and pure utility functions with no React dependency.
+
+```
+lib/
+├── axios.ts          # Configured Axios instance with auth interceptors
+├── fetchWithAuth.ts  # Lightweight fetch wrapper with cookie-based auth retry
+├── toast.ts          # Scoped react-hot-toast helper objects
+└── date.ts           # Date formatting utilities (es-PE locale)
+```
+
+Import from `lib/` anywhere in the project — features, shared modules, and components all use these utilities directly.
+
+</Accordion>
+
+<Accordion title="types/ — shared TypeScript interfaces">
+
+The `types/` directory contains interfaces and type aliases that are referenced by multiple modules.
+
+```
+types/
+├── catalogos.ts   # CatalogoBase and its catalog-specific aliases
+└── item.ts        # Item — the vessel registration data shape
+```
+
+Place a type here only when it is imported by two or more unrelated files. Types used by a single feature should stay inside that feature's directory.
+
+</Accordion>
+
+</AccordionGroup>

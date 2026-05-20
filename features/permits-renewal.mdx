@@ -1,0 +1,62 @@
+---
+title: "Operation permits and vessel renewals in DRTC Admin"
+description: "Manage vessel operating permits, renewals, and business name changes. Covers which fluvial workflows are active and which are planned for future releases."
+---
+
+Once a vessel is registered through the empadronamiento process, operators must manage its ongoing authorisations: obtaining or renewing an operating permit, updating the permit after a change of legal entity name, and keeping the vessel's credentials current. These workflows are grouped under the **Servicios Fluviales** section of the sidebar.
+
+## Sidebar navigation for this section
+
+In the sidebar (`Sidebar.tsx`), the **SERVICIOS FLUVIALES** group contains four items:
+
+| Sidebar item | Route | Status |
+|-------------|-------|--------|
+| Empadronamiento | `/fluvial/tramites/empadronamiento/dashboard` | Active |
+| Permisos de Operación | `/fluvial/tramites/permiso-operacion` | Próximo (coming soon) |
+| Renovación | `/fluvial/tramites/renovacion` | Active |
+| Cambio de Razón Social | `/fluvial/tramites/cambio-razon-social` | Próximo (coming soon) |
+
+Items marked **Próx** in the sidebar are rendered with reduced opacity and a non-navigable `href="#"`. Clicking them has no effect.
+
+## Permisos de Operación
+
+<Info>
+**Permisos de Operación** is not yet available in the current version of DRTC Fluvial Admin. The sidebar entry is disabled (`disabled: true`) and labelled **Próx**. This feature is planned for a future release.
+</Info>
+
+Operating permits (Permisos de Operación) will allow operators to issue, track, and revoke formal authorisations for vessels to operate on specific river routes. The sidebar route `/fluvial/tramites/permiso-operacion` exists in the application router but the page is not yet implemented beyond a placeholder.
+
+## Renovación
+
+Renovación is the active workflow for renewing the documentation and authorisations of vessels already registered in the DRTC registry. You access it from the sidebar at `/fluvial/tramites/renovacion`.
+
+The route exists and the page renders. Use this workflow when a vessel's existing permit or registration certificate is approaching expiry and needs to be extended or reissued by DRTC Amazonas.
+
+<Note>
+The Renovación module is under active development. Additional form steps and document upload capabilities are expected to be added in upcoming iterations.
+</Note>
+
+## Cambio de Razón Social
+
+<Info>
+**Cambio de Razón Social** is not yet available in the current version of DRTC Fluvial Admin. The sidebar entry is disabled (`disabled: true`) and labelled **Próx**. This feature is planned for a future release.
+</Info>
+
+A change of business name (Cambio de Razón Social) is required whenever a vessel-owning legal entity changes its registered company name. This workflow will let operators update the RUC-linked owner details across all active vessel registrations associated with that entity. The sidebar route `/fluvial/tramites/cambio-razon-social` is defined but not yet navigable.
+
+## Summary of current availability
+
+<CardGroup cols={2}>
+  <Card title="Empadronamiento" icon="ship">
+    Fully active. Register new vessels and owners using the multi-step form. Search and manage existing records from the empadronamiento dashboard.
+  </Card>
+  <Card title="Renovación" icon="refresh-cw">
+    Active. Navigate to `/fluvial/tramites/renovacion` to begin a renewal workflow for a registered vessel.
+  </Card>
+  <Card title="Permisos de Operación" icon="file-text">
+    Coming soon. The sidebar entry is disabled. Check back in a future release for full operating permit management.
+  </Card>
+  <Card title="Cambio de Razón Social" icon="building-2">
+    Coming soon. The sidebar entry is disabled. Business name change workflows will be available in a future release.
+  </Card>
+</CardGroup>

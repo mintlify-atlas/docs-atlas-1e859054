@@ -1,0 +1,485 @@
+---
+title: "Shared UI components reference for DRTC Fluvial Admin"
+description: "Props reference and usage examples for every shared React component: Sidebar, Navbar, Button, ModalBase, DataTable, BackButton, TitleHeader, and more."
+---
+
+The `shared/components` directory contains every reusable UI building block used across the DRTC Fluvial Admin panel. Each component is a `"use client"` React component written in TypeScript and styled with Tailwind CSS. You import them directly into any page or feature module — no extra setup required.
+
+<Note>
+  All components in this library use the institutional navy color `#001f3f` as their primary brand token. Do not override this with ad-hoc Tailwind classes; use the component's `variant` or `type` props instead.
+</Note>
+
+## Layout components
+
+The layout shell is composed of three fixed structural components — `Sidebar`, `Navbar`, and `Footer` — that wrap every authenticated page. You do not pass props to any of them; they are self-contained.
+
+<AccordionGroup>
+  <Accordion title="Sidebar">
+    `shared/components/Sidebar.tsx`
+
+    A collapsible left-side navigation panel that organizes links into labeled sections. It reads the current URL with `usePathname()` to highlight the active item and auto-expands the section that owns the active route.
+
+    **Internal types**
+
+    ```typescript
+    type MenuItem = {
+      name: string;
+      icon: LucideIcon;
+      href: string;
+      base?: string;      // prefix used for active-state matching
+      disabled?: boolean; // shows a "Próx" badge and blocks navigation
+    };
+
+    type MenuGroup = {
+      section: string;  // displayed as a collapsible section header
+      items: MenuItem[];
+    };
+    ```
+
+    **Sections defined in source**
+
+    | Section | Items |
+    |---|---|
+    | PRINCIPAL | Dashboard, Citas |
+    | RECEPCIÓN DOCUMENTARIA | Recepción de documentos, Bandeja de revisión, Observados y Rechazados |
+    | SERVICIOS FLUVIALES | Empadronamiento, Permisos de Operación, Renovación, Cambio de Razón Social |
+    | ADMINISTRAR PORTAL WEB | Tipos de Trámites, Noticias |
+
+    **Collapse behaviour**
+
+    - The sidebar toggles between `w-64` (expanded) and `w-20` (collapsed) via a `PanelLeftOpen`/`PanelLeftClose` button.
+    - In collapsed mode, only icons are shown.
+    - The `PRINCIPAL` section is always open. All other sections collapse/expand on header click via `toggleSection`.
+    - On navigation, `useEffect` automatically opens the section that owns the current path.
+
+    **Disabled items**
+
+    Set `disabled: true` on a `MenuItem` to render a greyed-out link with a `Próx` pill badge. The link is prevented from navigating.
+
+    **Usage**
+
+    `Sidebar` takes no props. Include it once in your root layout:
+
+    ```tsx
+    import Sidebar from "@/shared/components/Sidebar";
+
+    export default function FluvialLayout({ children }: { children: React.ReactNode }) {
+      return (
+        <div className="flex h-screen">
+          <Sidebar />
+          <main className="flex-1 overflow-auto">{children}</main>
+        </div>
+      );
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Navbar">
+    `shared/components/Navbar.tsx`
+
+    The top navigation bar rendered above every authenticated page. It accepts no props.
+
+    **What it displays**
+
+    - A full-width search input pre-populated with the placeholder `"Buscar expedientes de permisos..."`
+    - A `Bell` notification icon with a red unread dot; clicking it opens a dropdown with the three most recent notifications and a "Ver todas" link
+    - A `HelpCircle` icon button (help/support shortcut)
+    - A user avatar block showing the name `"Admin Regional"`, role `"Administrador"`, and initials `"AR"` — currently static placeholder values, pending backend integration
+
+    **Usage**
+
+    ```tsx
+    import Navbar from "@/shared/components/Navbar";
+
+    export default function FluvialLayout({ children }: { children: React.ReactNode }) {
+      return (
+        <div className="flex flex-col h-screen">
+          <Navbar />
+          <main className="flex-1 overflow-auto">{children}</main>
+        </div>
+      );
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Footer">
+    `shared/components/Footer.tsx`
+
+    A slim footer bar rendered at the bottom of every authenticated page. It accepts no props.
+
+    **What it displays**
+
+    | Column | Content |
+    |---|---|
+    | Left | `DRTC Fluvial v1.0.0` — version label |
+    | Center | `Sistema Regional de Gestión de Transportes y Comunicaciones — Madre de Dios` |
+    | Right | `© {currentYear} DRTC` — dynamic year via `new Date().getFullYear()` |
+
+    **Usage**
+
+    ```tsx
+    import Footer from "@/shared/components/Footer";
+
+    export default function FluvialLayout({ children }: { children: React.ReactNode }) {
+      return (
+        <div className="flex flex-col min-h-screen">
+          <main className="flex-1">{children}</main>
+          <Footer />
+        </div>
+      );
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Page-level utility components
+
+These components are placed at the top of individual pages to provide consistent headers, breadcrumb navigation, and sub-tab bars.
+
+<AccordionGroup>
+  <Accordion title="TitleHeader">
+    `shared/components/TitleHeader.tsx`
+
+    Renders a page title and optional description on the left, with optional action buttons or other content on the right. Use it as the first element inside every page's content area.
+
+    **Props**
+
+    ```typescript
+    interface TitleHeaderProps {
+      title: string;              // required — rendered as an <h1>
+      description?: string;       // optional — rendered below the title in slate-500
+      rightContent?: React.ReactNode; // optional — rendered in a flex row on the right
+    }
+    ```
+
+    **Usage**
+
+    ```tsx
+    import TitleHeader from "@/shared/components/TitleHeader";
+    import Button from "@/shared/components/Button";
+
+    export default function EmpadronamientoPage() {
+      return (
+        <TitleHeader
+          title="Empadronamiento"
+          description="Gestión de embarcaciones registradas"
+          rightContent={
+            <Button href="/fluvial/tramites/empadronamiento/nuevo" icon={<PlusCircle size={16} />}>
+              Nuevo registro
+            </Button>
+          }
+        />
+      );
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="BackButton">
+    `shared/components/BackButton.tsx`
+
+    A back-navigation row that includes a chevron link on the left and an optional step indicator pill on the right. Use it at the top of multi-step form pages to let users navigate back and see their progress.
+
+    **Props**
+
+    ```typescript
+    type Props = {
+      backHref: string;       // required — the href the chevron link points to
+      backLabel?: string;     // default: "Regresar" — label next to the chevron
+      stepText?: string;      // optional — if provided, renders an info pill on the right
+    };
+    ```
+
+    **Usage**
+
+    ```tsx
+    import BackButton from "@/shared/components/BackButton";
+
+    // Basic back navigation
+    <BackButton backHref="/fluvial/tramites/empadronamiento/dashboard" />
+
+    // With custom label and step indicator
+    <BackButton
+      backHref="/fluvial/tramites/empadronamiento/paso-1"
+      backLabel="Volver al paso anterior"
+      stepText="Paso 2 de 4"
+    />
+    ```
+
+    <Tip>
+      Only pass `stepText` when the page is part of a numbered multi-step flow. The pill uses an `Info` icon and is automatically hidden when `stepText` is undefined.
+    </Tip>
+  </Accordion>
+
+  <Accordion title="SubNavbar">
+    `shared/components/SubNavbarProps.tsx`
+
+    A horizontal tab bar rendered beneath the main `Navbar` to provide intra-section navigation. It highlights the active tab by matching the tab's `href` against the current pathname via `usePathname()`.
+
+    **Props**
+
+    ```typescript
+    interface Item {
+      label: string; // tab display text
+      href: string;  // exact pathname this tab points to
+    }
+
+    interface SubNavbarProps {
+      items: Item[]; // required — array of tab items to render
+    }
+    ```
+
+    **Usage**
+
+    ```tsx
+    import SubNavbar from "@/shared/components/SubNavbarProps";
+
+    const NAV_ITEMS = [
+      { label: "Agenda", href: "/fluvial/citas/agenda" },
+      { label: "Generar cita", href: "/fluvial/citas/generar" },
+      { label: "Historial", href: "/fluvial/citas/historial" },
+    ];
+
+    export default function CitasLayout({ children }: { children: React.ReactNode }) {
+      return (
+        <>
+          <SubNavbar items={NAV_ITEMS} />
+          {children}
+        </>
+      );
+    }
+    ```
+
+    <Note>
+      Active-state matching uses strict equality (`pathname === item.href`), not prefix matching. Make sure each `href` is the exact pathname of its destination page.
+    </Note>
+  </Accordion>
+</AccordionGroup>
+
+## Interactive components
+
+<AccordionGroup>
+  <Accordion title="Button">
+    `shared/components/Button.tsx`
+
+    The primary interactive element across the panel. Supports four visual variants, three sizes, optional icons, a loading spinner, and programmatic navigation via `href`.
+
+    **Props**
+
+    ```typescript
+    type Variant = "primary" | "secondary" | "danger" | "ghost";
+    type Size = "sm" | "md" | "lg";
+
+    type Props = {
+      children: ReactNode;       // required — button label
+      onClick?: () => void;      // click handler (runs after href navigation if both are set)
+      href?: string;             // if provided, calls router.push(href) on click
+      type?: "button" | "submit"; // default: "button"
+      variant?: Variant;         // default: "primary"
+      size?: Size;               // default: "md"
+      icon?: ReactNode;          // icon rendered before the label; hidden when loading=true
+      loading?: boolean;         // default: false — shows a spinning Loader2 icon
+      disabled?: boolean;        // default: false — disables click and reduces opacity
+      fullWidth?: boolean;       // default: false — sets w-full
+    };
+    ```
+
+    **Variant styles**
+
+    | Variant | Appearance |
+    |---|---|
+    | `primary` | Navy (`#001f3f`) background, white text |
+    | `secondary` | White background, gray border, dark text |
+    | `danger` | Red-600 background, white text |
+    | `ghost` | Transparent background, gray text, hover fill |
+
+    **Size tokens**
+
+    | Size | Padding | Font size |
+    |---|---|---|
+    | `sm` | `px-3 py-1.5` | `text-xs` |
+    | `md` | `px-4 py-2` | `text-sm` |
+    | `lg` | `px-5 py-3` | `text-base` |
+
+    **Usage**
+
+    ```tsx
+    import Button from "@/shared/components/Button";
+    import { PlusCircle, Trash2 } from "lucide-react";
+
+    // Primary action with icon
+    <Button icon={<PlusCircle size={16} />} href="/fluvial/tramites/empadronamiento/nuevo">
+      Nuevo registro
+    </Button>
+
+    // Form submit with loading state
+    <Button type="submit" loading={isSubmitting} fullWidth>
+      Guardar
+    </Button>
+
+    // Danger confirmation
+    <Button variant="danger" size="sm" onClick={handleDelete} icon={<Trash2 size={14} />}>
+      Eliminar
+    </Button>
+
+    // Secondary cancel
+    <Button variant="secondary" onClick={onClose}>
+      Cancelar
+    </Button>
+    ```
+  </Accordion>
+
+  <Accordion title="ModalBase">
+    `shared/components/ModalBase.tsx`
+
+    A centered overlay modal with a blurred backdrop, a header section, and a scrollable body. It closes when you click the backdrop, click the `X` button, or press `Escape`.
+
+    **Props**
+
+    ```typescript
+    type Props = {
+      title: string;       // required — displayed as an <h3> in the modal header
+      subtitle?: string;   // optional — smaller text beneath the title
+      onClose: () => void; // required — called on backdrop click, X click, or Escape key
+      children: ReactNode; // required — rendered in the modal body
+    };
+    ```
+
+    **Usage**
+
+    ```tsx
+    import { useState } from "react";
+    import ModalBase from "@/shared/components/ModalBase";
+    import Button from "@/shared/components/Button";
+
+    export default function EditarPropietarioModal({ propietarioId }: { propietarioId: string }) {
+      const [open, setOpen] = useState(false);
+
+      return (
+        <>
+          <Button onClick={() => setOpen(true)}>Editar propietario</Button>
+
+          {open && (
+            <ModalBase
+              title="Editar propietario"
+              subtitle={`ID: ${propietarioId}`}
+              onClose={() => setOpen(false)}
+            >
+              {/* form fields */}
+            </ModalBase>
+          )}
+        </>
+      );
+    }
+    ```
+
+    <Tip>
+      The modal body is wrapped in a `space-y-6` div. Place each form section or field group as a direct child to get consistent vertical spacing automatically.
+    </Tip>
+  </Accordion>
+</AccordionGroup>
+
+## Data display components
+
+<AccordionGroup>
+  <Accordion title="DataTable">
+    `shared/components/table-pagination/DataTable.tsx`
+
+    A generic, fully-typed paginated data table. It renders a header with a title and record count, an optional search input with an optional type selector, a striped table body, and a smart pagination row. It is the standard table component for all list views in the panel.
+
+    **Type parameter**
+
+    `DataTable<T>` — `T` is the shape of a single data record. TypeScript infers `T` from the `data` and `columns` props.
+
+    **Column type**
+
+    ```typescript
+    export type Column<T> = {
+      header: string;           // column heading text
+      accessor?: keyof T;       // key on T to display as a string
+      render?: (item: T) => ReactNode; // custom cell renderer; takes priority over accessor
+      className?: string;       // optional class for the <td>
+    };
+    ```
+
+    **Props**
+
+    ```typescript
+    type Props<T> = {
+      title: string;             // table card title
+      total: number;             // total record count (shown as "N registros encontrados")
+      data: T[];                 // current page's records
+      columns: Column<T>[];      // column definitions
+      keyField: keyof T;         // unique key field used as React key
+      loading?: boolean;         // shows "Cargando..." row when true
+
+      page: number;              // current page number (1-indexed)
+      totalPages: number;        // total number of pages
+      onPageChange: (page: number) => void;
+
+      search?: string;           // controlled search input value
+      onSearchChange?: (value: string) => void;
+      onSearchSubmit?: () => void; // if provided, renders a "Buscar" button
+
+      searchType?: string;       // controlled search type select value
+      onSearchTypeChange?: (value: string) => void;
+      searchTypeOptions?: { label: string; value: string }[]; // populates the type dropdown
+
+      extraActions?: ReactNode;  // additional buttons rendered in the header action row
+    };
+    ```
+
+    **Pagination behaviour**
+
+    The pagination row only renders when `totalPages > 1`. It shows at most 5 page buttons centered around the current page, with ellipsis (`...`) to jump to the first and last pages when needed.
+
+    **Usage**
+
+    ```tsx
+    import { DataTable, Column } from "@/shared/components/table-pagination/DataTable";
+    import { useState } from "react";
+
+    type Nave = { id: string; nombre: string; matricula: string; estado: string };
+
+    const columns: Column<Nave>[] = [
+      { header: "Matrícula", accessor: "matricula" },
+      { header: "Nombre", accessor: "nombre" },
+      {
+        header: "Estado",
+        render: (nave) => (
+          <span className={nave.estado === "activo" ? "text-green-600" : "text-red-600"}>
+            {nave.estado}
+          </span>
+        ),
+      },
+    ];
+
+    export default function NavesPage() {
+      const [page, setPage] = useState(1);
+      const [search, setSearch] = useState("");
+
+      const { data, total, totalPages, loading } = useNaves({ page, search });
+
+      return (
+        <DataTable<Nave>
+          title="Naves registradas"
+          total={total}
+          data={data}
+          columns={columns}
+          keyField="id"
+          loading={loading}
+          page={page}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          search={search}
+          onSearchChange={setSearch}
+          onSearchSubmit={() => setPage(1)}
+        />
+      );
+    }
+    ```
+
+    <Note>
+      Always reset `page` to `1` inside `onSearchSubmit` to avoid being on a page that no longer exists after filtering.
+    </Note>
+  </Accordion>
+</AccordionGroup>

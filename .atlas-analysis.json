@@ -1,23 +1,11 @@
 {
-  "$schema": "https://mintlify.com/docs.json",
-  "name": "DRTC Fluvial Admin",
+  "projectType": "saas",
+  "projectName": "DRTC Fluvial Admin",
+  "projectDescription": "A Next.js administrative panel for the Regional Directorate of Transport and Communications (DRTC Amazonas) that manages river vessel registrations, appointments, permits, and web portal content.",
   "theme": "luma",
-  "colors": {
-    "primary": "#001f3f",
-    "light": "#e9f0f6",
-    "dark": "#001224"
-  },
-  "navbar": {
-    "primary": {
-      "type": "github",
-      "href": "https://github.com/Bran258/drtc-fluvial-admin"
-    }
-  },
-  "footer": {
-    "socials": {
-      "github": "https://github.com/Bran258/drtc-fluvial-admin"
-    }
-  },
+  "primaryColor": "#001f3f",
+  "lightColor": "#e9f0f6",
+  "darkColor": "#001224",
   "navigation": {
     "tabs": [
       {
@@ -78,5 +66,31 @@
         ]
       }
     ]
-  }
+  },
+  "keyFeatures": [
+    "JWT-based authentication with automatic token refresh",
+    "Fluvial vessel registration (empadronamiento) with multi-step form",
+    "Appointment management with agenda, scheduling, and history",
+    "Dashboard with real-time statistics and KPI cards",
+    "Portal web content management (tramites and noticias)",
+    "Interactive guided tours using driver.js",
+    "Voice guide accessibility feature for forms",
+    "Vessel owner management (propietarios de naves)",
+    "Document reception and review workflow",
+    "Collapsible sidebar navigation with role-based sections"
+  ],
+  "publicApiSurface": [
+    "POST /api/auth/login",
+    "POST /api/auth/refresh",
+    "POST /api/auth/logout",
+    "GET /api/dashboard",
+    "GET /api/dashboard/stats",
+    "GET /api/personas/lookup?doc={dniRuc}",
+    "GET /api/catalogo/tipos-nave",
+    "GET /api/catalogo/materiales",
+    "GET /api/catalogo/modalidades",
+    "GET /api/catalogo/servicios-nave",
+    "GET /api/catalogo/ubicaciones",
+    "GET /api/propietarios"
+  ]
 }

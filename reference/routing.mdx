@@ -1,0 +1,166 @@
+---
+title: "Next.js App Router routing in DRTC Fluvial Admin"
+description: "How the App Router file system maps to URLs, the (backoffice) route group layout, middleware protection, and the @/ TypeScript path alias."
+---
+
+DRTC Fluvial Admin uses the Next.js App Router, where each directory in `app/` corresponds to a URL segment and a `page.tsx` file opts that segment into rendering. Route groups — directories wrapped in parentheses such as `(backoffice)` — let you apply a shared layout to a set of pages without those parentheses appearing in the URL. Understanding this structure is the starting point for adding new routes, debugging navigation, and tracing where a given page's code lives.
+
+## Route map
+
+The table below lists every route available in the application, the file that renders it, and the purpose of that page.
+
+| URL | File | Purpose |
+|-----|------|---------|
+| `/` | `app/page.tsx` | Redirects immediately to `/auth` |
+| `/auth` | `app/auth/page.tsx` | Staff login form |
+| `/olvide-contrasena` | `app/olvide-contrasena/page.tsx` | Password recovery |
+| `/fluvial/dashboard` | `app/(backoffice)/fluvial/dashboard/page.tsx` | Main statistics dashboard |
+| `/fluvial/citas/agenda` | `app/(backoffice)/fluvial/citas/agenda/page.tsx` | Appointments calendar view |
+| `/fluvial/citas/generar` | `app/(backoffice)/fluvial/citas/generar/page.tsx` | Create a new appointment |
+| `/fluvial/citas/historial` | `app/(backoffice)/fluvial/citas/historial/page.tsx` | Appointment history |
+| `/fluvial/tramites/empadronamiento/dashboard` | `app/(backoffice)/fluvial/tramites/empadronamiento/(dashboard)/dashboard/page.tsx` | Vessel registration overview |
+| `/fluvial/tramites/empadronamiento/propietarios` | `app/(backoffice)/fluvial/tramites/empadronamiento/(dashboard)/propietarios/page.tsx` | Vessel owners list |
+| `/fluvial/tramites/empadronamiento/naves` | `app/(backoffice)/fluvial/tramites/empadronamiento/(dashboard)/naves/page.tsx` | Vessels list |
+| `/fluvial/tramites/empadronamiento/opciones` | `app/(backoffice)/fluvial/tramites/empadronamiento/opciones/page.tsx` | Registration options |
+| `/fluvial/tramites/permiso-operacion` | `app/(backoffice)/fluvial/tramites/permiso-operacion/page.tsx` | Operation permit management |
+| `/fluvial/tramites/renovacion` | `app/(backoffice)/fluvial/tramites/renovacion/page.tsx` | Permit renewal |
+| `/portal-web/tramites` | `app/(backoffice)/portal-web/tramites/page.tsx` | Public portal tramites CMS |
+| `/portal-web/noticias` | `app/(backoffice)/portal-web/noticias/page.tsx` | Public portal news CMS |
+
+## The `(backoffice)` route group
+
+All authenticated pages live under `app/(backoffice)/`. The parentheses tell Next.js to treat this as a route group — the segment is invisible in the browser URL bar, but the `layout.tsx` inside it wraps every child route.
+
+```typescript app/(backoffice)/layout.tsx
+import Sidebar from "@/shared/components/Sidebar";
+import Navbar from "@/shared/components/Navbar";
+import Footer from "@/shared/components/Footer";
+
+export default function TransporteFluvialLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex h-screen">
+
+      {/* Sidebar */}
+      <Sidebar />
+
+      {/* Contenedor principal */}
+      <div className="flex flex-col flex-1">
+
+        {/* Navbar */}
+        <Navbar />
+
+        {/* Contenido */}
+        <main className="flex-1 bg-zinc-100 overflow-y-auto">
+          {children}
+        </main>
+
+        {/* Footer */}
+        <Footer />
+
+      </div>
+    </div>
+  );
+}
+```
+
+Any page you add under `app/(backoffice)/` automatically receives the `Sidebar`, `Navbar`, and `Footer` without any additional imports.
+
+<Note>
+The `empadronamiento/` directory contains a second nested route group, `(dashboard)/`, which applies its own sub-layout to the dashboard, propietarios, and naves pages without adding an extra URL segment.
+</Note>
+
+## Root redirect
+
+The root page performs a server-side redirect so that visiting `/` always sends users to the login screen:
+
+```typescript app/page.tsx
+import { redirect } from "next/navigation";
+
+export default function Home() {
+  redirect("/auth");
+}
+```
+
+## Middleware and route protection
+
+Route protection is implemented in `proxy.ts` and called from the Next.js middleware. The proxy function reads the `accessToken` cookie and enforces three rules:
+
+```typescript proxy.ts
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+
+export function proxy(request: NextRequest) {
+  const token = request.cookies.get("accessToken")?.value;
+  const pathname = request.nextUrl.pathname;
+
+  const isAuthPage = pathname.startsWith("/auth");
+
+  const isProtectedRoute =
+    pathname.startsWith("/fluvial/dashboard") ||
+    pathname.startsWith("/fluvial/tramites/permiso-operacion") ||
+    pathname.startsWith("/fluvial/tramites/renovacion");
+
+  // Redirect root to /auth
+  if (pathname === "/") {
+    return NextResponse.redirect(new URL("/auth", request.url));
+  }
+  // Block protected routes when unauthenticated
+  if (!token && isProtectedRoute) {
+    return NextResponse.redirect(new URL("/auth", request.url));
+  }
+  // Redirect authenticated users away from /auth
+  if (token && isAuthPage) {
+    return NextResponse.redirect(
+      new URL("/fluvial/dashboard", request.url)
+    );
+  }
+
+  return NextResponse.next();
+}
+```
+
+The three protection rules are:
+
+| Condition | Behavior |
+|-----------|----------|
+| `pathname === "/"` | Redirect to `/auth` |
+| No `accessToken` cookie on a protected route | Redirect to `/auth` |
+| Valid `accessToken` cookie on `/auth` | Redirect to `/fluvial/dashboard` |
+
+<Tip>
+When you add a new protected route, add its prefix to the `isProtectedRoute` check in `proxy.ts` so unauthenticated requests are redirected correctly.
+</Tip>
+
+## The `@/` path alias
+
+`tsconfig.json` defines a path alias that maps `@/` to the repository root:
+
+```json tsconfig.json
+{
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["./*"]
+    }
+  }
+}
+```
+
+This means you can write `@/lib/axios` instead of a relative path like `../../../../lib/axios`. Use the `@/` alias for all imports that cross directory boundaries.
+
+<CodeGroup>
+
+```typescript Correct
+import axiosInstance from "@/lib/axios";
+import { Sidebar } from "@/shared/components/Sidebar";
+```
+
+```typescript Avoid
+import axiosInstance from "../../../../lib/axios";
+import { Sidebar } from "../../shared/components/Sidebar";
+```
+
+</CodeGroup>

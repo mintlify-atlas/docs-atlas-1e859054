@@ -1,0 +1,73 @@
+---
+title: "Sign in and manage sessions in DRTC Fluvial Admin"
+description: "Understand how DRTC Fluvial Admin authenticates users, silently refreshes access tokens, protects routes, and handles session expiry."
+---
+
+DRTC Fluvial Admin uses a JWT-based authentication system backed by your NestJS API. When you sign in, the server issues a short-lived access token stored in `localStorage` and a `refreshToken` in an httpOnly cookie. The admin panel automatically renews the access token in the background, so your session stays active without interrupting your work.
+
+## Signing in
+
+Navigate to `/auth` to reach the login page. Enter your institutional email address and password, then click **Iniciar Sesión**.
+
+The login form submits a `POST` request to the backend:
+
+```http
+POST /api/auth/login
+Content-Type: application/json
+
+{
+  "email": "usuario@drtc.gob.pe",
+  "password": "your-password"
+}
+```
+
+On success, the server returns an `access_token`. The admin panel stores this token in `localStorage` and attaches it as a `Bearer` token on every subsequent API request via the `Authorization` header.
+
+<Tip>
+  If you visit `/auth` while already signed in, the panel automatically redirects you to `/fluvial/dashboard`. You do not need to sign in again.
+</Tip>
+
+## Automatic token refresh
+
+When any API request returns a `401 Unauthorized` response, the panel silently calls the refresh endpoint before retrying the original request:
+
+```http
+POST /api/auth/refresh
+```
+
+This call uses the httpOnly `refreshToken` cookie. If the refresh succeeds, the panel stores the new `access_token` in `localStorage` and replays all queued requests without any visible interruption. Any concurrent requests that arrive during the refresh are queued and replayed once the new token is ready.
+
+<Warning>
+  If the refresh call also fails — for example, because the refresh token has expired — the panel removes the access token from `localStorage` and redirects you to `/auth`. Any unsaved work will be lost.
+</Warning>
+
+## Session storage
+
+| Value | Storage | Description |
+|---|---|---|
+| `access_token` | `localStorage` | Short-lived JWT sent as a `Bearer` token on every request |
+| `refreshToken` | httpOnly cookie | Long-lived token used to obtain a new access token silently |
+
+## Signing out
+
+To sign out, the panel calls:
+
+```http
+POST /api/auth/logout
+```
+
+This clears the httpOnly cookie on the server side and redirects you to `/auth`.
+
+## Protected routes
+
+The following routes require a valid session. Visiting them without a token redirects you to `/auth`:
+
+| Route | Description |
+|---|---|
+| `/fluvial/dashboard` | Main operations dashboard |
+| `/fluvial/tramites/permiso-operacion` | Operation permit management |
+| `/fluvial/tramites/renovacion` | Permit renewal management |
+
+## Password recovery
+
+If you have forgotten your password, click **Olvidé mi contraseña** on the login page. This takes you to `/olvide-contrasena`, where you can request a password reset.
